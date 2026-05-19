@@ -1,13 +1,4 @@
-import subprocess
-import sys
-
-# Force install groq if not available
-try:
-    from groq import Groq
-except ImportError:
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "groq"])
-    from groq import Groq
-
+from groq import Groq
 import streamlit as st
 import random
 import os
