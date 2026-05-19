@@ -1,10 +1,16 @@
+import subprocess
+import sys
+
+# Force install groq if not available
+try:
+    from groq import Groq
+except ImportError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "groq"])
+    from groq import Groq
+
 import streamlit as st
-from groq import Groq
 import random
 import os
-from dotenv import load_dotenv
-
-load_dotenv()
 
 # ── Page config ──────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -23,7 +29,6 @@ body, .stApp {
     color: #f0f0f0 !important;
     font-family: 'Space Mono', monospace !important;
 }
-
 h1 {
     font-family: 'Bebas Neue', sans-serif !important;
     font-size: 3.5rem !important;
@@ -32,205 +37,54 @@ h1 {
     letter-spacing: 0.08em;
     margin-bottom: 0 !important;
 }
-
 .category-tag {
-    background: #2a2a35;
-    border: 1px solid #6b6b80;
-    color: #47c8ff;
-    padding: 4px 14px;
-    border-radius: 3px;
-    font-size: 0.7rem;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    display: inline-block;
-    margin-bottom: 20px;
+    background: #2a2a35; border: 1px solid #6b6b80;
+    color: #47c8ff; padding: 4px 14px; border-radius: 3px;
+    font-size: 0.7rem; letter-spacing: 0.2em;
+    text-transform: uppercase; display: inline-block; margin-bottom: 20px;
 }
-
 .word-display {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    justify-content: center;
-    padding: 24px;
-    background: #141418;
-    border: 1px solid #2a2a35;
-    border-radius: 4px;
-    margin: 16px 0;
+    display: flex; flex-wrap: wrap; gap: 10px;
+    justify-content: center; padding: 24px;
+    background: #141418; border: 1px solid #2a2a35;
+    border-radius: 4px; margin: 16px 0;
 }
-
-.letter-box {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-}
-
-.letter-char {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 2.2rem;
-    color: #e8ff47;
-    min-width: 28px;
-    text-align: center;
-}
-
-.letter-blank {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 2.2rem;
-    color: #3a3a4a;
-    min-width: 28px;
-    text-align: center;
-}
-
-.letter-wrong {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 2.2rem;
-    color: #ff4757;
-    min-width: 28px;
-    text-align: center;
-}
-
-.letter-line {
-    width: 28px;
-    height: 2px;
-    background: #2a2a35;
-    border-radius: 1px;
-}
-
-.hint-box {
-    background: #141418;
-    border: 1px solid #2a2a35;
-    border-radius: 4px;
-    padding: 16px 20px;
-    font-style: italic;
-    color: #f0f0f0;
-    font-size: 0.9rem;
-    line-height: 1.7;
-    margin: 10px 0;
-}
-
-.wrong-letters-box {
-    background: #1a0a0d;
-    border: 1px solid #ff4757;
-    border-radius: 4px;
-    padding: 10px 16px;
-    color: #ff4757;
-    font-size: 0.85rem;
-    letter-spacing: 0.15em;
-    margin: 8px 0;
-}
-
-.win-box {
-    background: #0a1f14;
-    border: 2px solid #47ff8a;
-    border-radius: 4px;
-    padding: 20px;
-    text-align: center;
-    color: #47ff8a;
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 2.5rem;
-    letter-spacing: 0.1em;
-}
-
-.lose-box {
-    background: #1a0508;
-    border: 2px solid #ff4757;
-    border-radius: 4px;
-    padding: 20px;
-    text-align: center;
-    color: #ff4757;
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 2.5rem;
-    letter-spacing: 0.1em;
-}
-
-.fact-box {
-    background: #141418;
-    border: 1px solid #2a2a35;
-    border-radius: 4px;
-    padding: 16px 20px;
-    font-style: italic;
-    color: #6b6b80;
-    font-size: 0.85rem;
-    line-height: 1.7;
-    margin: 10px 0;
-    text-align: center;
-}
-
-.stButton > button {
-    font-family: 'Space Mono', monospace !important;
-    font-size: 0.75rem !important;
-    font-weight: 700 !important;
-    letter-spacing: 0.1em !important;
-    text-transform: uppercase !important;
-    border-radius: 4px !important;
-    transition: all 0.2s ease !important;
-}
-
-div[data-testid="stHorizontalBlock"] .stButton > button {
-    width: 100% !important;
-    padding: 8px 4px !important;
-    background: #141418 !important;
-    border: 1px solid #2a2a35 !important;
-    color: #f0f0f0 !important;
-}
-
-div[data-testid="stHorizontalBlock"] .stButton > button:hover {
-    background: #e8ff47 !important;
-    color: #0d0d0f !important;
-    border-color: #e8ff47 !important;
-}
-
-div[data-testid="stHorizontalBlock"] .stButton > button:disabled {
-    opacity: 0.3 !important;
-}
-
-hr {
-    border-color: #2a2a35 !important;
-}
-
-.stSpinner > div {
-    border-top-color: #47c8ff !important;
-}
+.letter-char { font-family: 'Bebas Neue', sans-serif; font-size: 2.2rem; color: #e8ff47; min-width: 28px; text-align: center; }
+.letter-blank { font-family: 'Bebas Neue', sans-serif; font-size: 2.2rem; color: #3a3a4a; min-width: 28px; text-align: center; }
+.letter-wrong { font-family: 'Bebas Neue', sans-serif; font-size: 2.2rem; color: #ff4757; min-width: 28px; text-align: center; }
+.letter-line { width: 28px; height: 2px; background: #2a2a35; border-radius: 1px; }
+.hint-box { background: #141418; border: 1px solid #2a2a35; border-radius: 4px; padding: 16px 20px; font-style: italic; color: #f0f0f0; font-size: 0.9rem; line-height: 1.7; margin: 10px 0; }
+.wrong-letters-box { background: #1a0a0d; border: 1px solid #ff4757; border-radius: 4px; padding: 10px 16px; color: #ff4757; font-size: 0.85rem; letter-spacing: 0.15em; margin: 8px 0; }
+.win-box { background: #0a1f14; border: 2px solid #47ff8a; border-radius: 4px; padding: 20px; text-align: center; color: #47ff8a; font-family: 'Bebas Neue', sans-serif; font-size: 2.5rem; letter-spacing: 0.1em; }
+.lose-box { background: #1a0508; border: 2px solid #ff4757; border-radius: 4px; padding: 20px; text-align: center; color: #ff4757; font-family: 'Bebas Neue', sans-serif; font-size: 2.5rem; letter-spacing: 0.1em; }
+.fact-box { background: #141418; border: 1px solid #2a2a35; border-radius: 4px; padding: 16px 20px; font-style: italic; color: #6b6b80; font-size: 0.85rem; line-height: 1.7; margin: 10px 0; text-align: center; }
+hr { border-color: #2a2a35 !important; }
 </style>
 """, unsafe_allow_html=True)
 
 # ── Word bank ────────────────────────────────────────────────────────────────
 WORD_BANK = {
-    "animals": [
-        "elephant", "giraffe", "penguin", "dolphin", "crocodile",
-        "chameleon", "platypus", "armadillo", "rhinoceros", "hippopotamus"
-    ],
-    "countries": [
-        "australia", "zimbabwe", "portugal", "bangladesh", "switzerland",
-        "mozambique", "kazakhstan", "india", "azerbaijan", "liechtenstein"
-    ],
-    "science": [
-        "photosynthesis", "mitochondria", "chromosome", "electrolysis",
-        "thermodynamics", "hypothesis", "ecosystem", "gravitational",
-        "bioluminescence", "electromagnetic"
-    ],
-    "food": [
-        "biryani", "noodles", "friedrice", "croissant", "momos",
-        "gulabjamun", "butternaan", "jalebi", "ratatouille", "spaghetti"
-    ],
-    "technology": [
-        "algorithm", "blockchain", "encryption", "kubernetes", "javascript",
-        "cybersecurity", "bandwidth", "semiconductor", "repository", "virtualization"
-    ]
+    "animals": ["elephant","giraffe","penguin","dolphin","crocodile","chameleon","platypus","armadillo","rhinoceros","hippopotamus"],
+    "countries": ["australia","zimbabwe","portugal","bangladesh","switzerland","mozambique","kazakhstan","india","azerbaijan","liechtenstein"],
+    "science": ["photosynthesis","mitochondria","chromosome","electrolysis","thermodynamics","hypothesis","ecosystem","gravitational","bioluminescence","electromagnetic"],
+    "food": ["biryani","noodles","friedrice","croissant","momos","gulabjamun","butternaan","jalebi","ratatouille","spaghetti"],
+    "technology": ["algorithm","blockchain","encryption","kubernetes","javascript","cybersecurity","bandwidth","semiconductor","repository","virtualization"]
 }
 
-BODY_PARTS = ["head", "body", "left arm", "right arm", "left leg", "right leg"]
 MAX_WRONG = 6
+MODEL = "llama-3.3-70b-versatile"
 
 # ── Groq client ──────────────────────────────────────────────────────────────
 @st.cache_resource
 def get_groq_client():
-    api_key = os.environ.get("GROQ_API_KEY") or st.secrets.get("GROQ_API_KEY", "")
+    api_key = ""
+    try:
+        api_key = st.secrets["GROQ_API_KEY"]
+    except:
+        api_key = os.environ.get("GROQ_API_KEY", "")
     return Groq(api_key=api_key)
 
-MODEL = "llama-3.3-70b-versatile"
-
-# ── Game state init ───────────────────────────────────────────────────────────
+# ── Game state ────────────────────────────────────────────────────────────────
 def init_game():
     category = random.choice(list(WORD_BANK.keys()))
     word = random.choice(WORD_BANK[category])
@@ -255,13 +109,11 @@ def get_hint(hint_number):
     guessed = list(st.session_state.guessed)
     wrong = st.session_state.wrong
     revealed = " ".join([ch if ch in st.session_state.guessed else "_" for ch in word])
-
     hint_levels = {
         1: "Give a vague, creative, poetic clue about the word. Do NOT mention the word or any of its letters directly.",
         2: "Give a more specific clue — mention the category, a key property, or an interesting fact. Still do not reveal the word.",
-        3: f"Give a strong hint. You may confirm correct letters found ({', '.join(guessed) or 'none'}) and hint at structure. Still don't say the word."
+        3: f"Give a strong hint. You may confirm correct letters ({', '.join(guessed) or 'none'}) and hint at structure. Still don't say the word."
     }
-
     prompt = f"""You are the hint-giver in a Hangman game.
 Word: "{word}", Category: {category}
 Correct letters: {', '.join([l for l in guessed if l in word]) or 'none'}
@@ -270,7 +122,6 @@ Revealed: "{revealed}"
 Hint level: {hint_number}/3
 Instructions: {hint_levels[hint_number]}
 Respond with ONLY the hint — 1-2 sentences. No preamble."""
-
     try:
         response = client.chat.completions.create(
             model=MODEL, max_tokens=150,
@@ -279,7 +130,6 @@ Respond with ONLY the hint — 1-2 sentences. No preamble."""
         return response.choices[0].message.content.strip()
     except Exception as e:
         return f"Hint unavailable: {e}"
-
 
 def get_fun_fact(word, category, won):
     client = get_groq_client()
@@ -295,111 +145,92 @@ Write a single fun, surprising sentence about "{word}". Be enthusiastic but brie
     except:
         return "Great game!"
 
-# ── Draw Hangman (text art) ───────────────────────────────────────────────────
-def draw_hangman(wrong_count):
+# ── Hangman drawing ───────────────────────────────────────────────────────────
+def draw_hangman(n):
     stages = [
-        # 0 wrong
-        """
+"""
   +---+
   |   |
       |
       |
       |
       |
-=========""",
-        # 1
-        """
+=========""","""
   +---+
   |   |
   O   |
       |
       |
       |
-=========""",
-        # 2
-        """
+=========""","""
   +---+
   |   |
   O   |
   |   |
       |
       |
-=========""",
-        # 3
-        """
+=========""","""
   +---+
   |   |
   O   |
  /|   |
       |
       |
-=========""",
-        # 4
-        """
+=========""","""
   +---+
   |   |
   O   |
  /|\\  |
       |
       |
-=========""",
-        # 5
-        """
+=========""","""
   +---+
   |   |
   O   |
  /|\\  |
  /    |
       |
-=========""",
-        # 6
-        """
+=========""","""
   +---+
   |   |
   O   |
  /|\\  |
  / \\  |
       |
-=========""",
+========="""
     ]
-    return stages[min(wrong_count, 6)]
+    return stages[min(n, 6)]
 
-# ── Render word display ───────────────────────────────────────────────────────
+# ── Word display ──────────────────────────────────────────────────────────────
 def render_word():
     word = st.session_state.word
     guessed = st.session_state.guessed
     game_over = st.session_state.game_over
     won = st.session_state.won
-
     html = '<div class="word-display">'
     for ch in word:
         if ch in guessed:
-            html += f'<div class="letter-box"><div class="letter-char">{ch.upper()}</div><div class="letter-line"></div></div>'
+            html += f'<div style="display:flex;flex-direction:column;align-items:center;gap:4px"><div class="letter-char">{ch.upper()}</div><div class="letter-line"></div></div>'
         elif game_over and not won:
-            html += f'<div class="letter-box"><div class="letter-wrong">{ch.upper()}</div><div class="letter-line"></div></div>'
+            html += f'<div style="display:flex;flex-direction:column;align-items:center;gap:4px"><div class="letter-wrong">{ch.upper()}</div><div class="letter-line"></div></div>'
         else:
-            html += f'<div class="letter-box"><div class="letter-blank">_</div><div class="letter-line"></div></div>'
+            html += f'<div style="display:flex;flex-direction:column;align-items:center;gap:4px"><div class="letter-blank">_</div><div class="letter-line"></div></div>'
     html += '</div>'
     st.markdown(html, unsafe_allow_html=True)
 
-# ── Check game state ──────────────────────────────────────────────────────────
+# ── Check win/lose ────────────────────────────────────────────────────────────
 def check_game():
     word = st.session_state.word
-    guessed = st.session_state.guessed
-    wrong = st.session_state.wrong
-
-    if all(ch in guessed for ch in word):
+    if all(ch in st.session_state.guessed for ch in word):
         st.session_state.game_over = True
         st.session_state.won = True
         st.session_state.fun_fact = get_fun_fact(word, st.session_state.category, True)
-
-    elif len(wrong) >= MAX_WRONG:
+    elif len(st.session_state.wrong) >= MAX_WRONG:
         st.session_state.game_over = True
         st.session_state.won = False
         st.session_state.fun_fact = get_fun_fact(word, st.session_state.category, False)
 
 # ── UI ────────────────────────────────────────────────────────────────────────
-# Header
 col_title, col_cat = st.columns([3, 1])
 with col_title:
     st.markdown("<h1>HANG<span style='color:#f0f0f0'>MAN</span></h1>", unsafe_allow_html=True)
@@ -408,53 +239,38 @@ with col_cat:
 
 st.markdown("<hr>", unsafe_allow_html=True)
 
-# Main layout
 left, right = st.columns([1, 1.5])
 
 with left:
-    # Hangman drawing
-    wrong_count = len(st.session_state.wrong)
-    st.code(draw_hangman(wrong_count), language=None)
-    st.markdown(f"**WRONG: {wrong_count}/{MAX_WRONG}**")
-
+    st.code(draw_hangman(len(st.session_state.wrong)), language=None)
+    st.markdown(f"**WRONG: {len(st.session_state.wrong)}/{MAX_WRONG}**")
     if st.session_state.wrong:
         wrong_str = "  ".join([l.upper() for l in st.session_state.wrong])
         st.markdown(f'<div class="wrong-letters-box">✗  {wrong_str}</div>', unsafe_allow_html=True)
 
 with right:
-    # Word display
     render_word()
-
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Keyboard — only show if game not over
     if not st.session_state.game_over:
         alphabet = "abcdefghijklmnopqrstuvwxyz"
         rows = [alphabet[:13], alphabet[13:]]
-
         for row in rows:
             cols = st.columns(len(row))
             for i, letter in enumerate(row):
                 with cols[i]:
                     already_guessed = letter in st.session_state.guessed
-                    if st.button(
-                        letter.upper(),
-                        key=f"key_{letter}",
-                        disabled=already_guessed or st.session_state.game_over
-                    ):
+                    if st.button(letter.upper(), key=f"key_{letter}", disabled=already_guessed):
                         st.session_state.guessed.add(letter)
                         if letter not in st.session_state.word:
                             st.session_state.wrong.append(letter)
                         check_game()
                         st.rerun()
 
-    # Hint section
     st.markdown("<hr>", unsafe_allow_html=True)
     st.markdown("**🤖 AI Hints**")
-
     hint_count = st.session_state.hint_count
-    dots = "🔵" * hint_count + "⚪" * (3 - hint_count)
-    st.markdown(dots)
+    st.markdown("🔵" * hint_count + "⚪" * (3 - hint_count))
 
     for h in st.session_state.hints:
         st.markdown(f'<div class="hint-box">"{h}"</div>', unsafe_allow_html=True)
@@ -472,20 +288,16 @@ with right:
 # ── Game Over ─────────────────────────────────────────────────────────────────
 if st.session_state.game_over:
     st.markdown("<hr>", unsafe_allow_html=True)
-
     if st.session_state.won:
         st.markdown('<div class="win-box">🎉 YOU WIN!</div>', unsafe_allow_html=True)
     else:
         st.markdown(f'<div class="lose-box">💀 GAME OVER<br><span style="font-size:1.2rem;color:#f0f0f0">The word was: {st.session_state.word.upper()}</span></div>', unsafe_allow_html=True)
-
     if st.session_state.fun_fact:
         st.markdown(f'<div class="fact-box">💡 {st.session_state.fun_fact}</div>', unsafe_allow_html=True)
-
     if st.button("↺ Play Again", key="play_again"):
         init_game()
         st.rerun()
 
-# ── New Game button ───────────────────────────────────────────────────────────
 st.markdown("<br>", unsafe_allow_html=True)
 if st.button("↺ New Game", key="new_game"):
     init_game()
