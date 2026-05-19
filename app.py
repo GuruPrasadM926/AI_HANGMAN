@@ -1,20 +1,4 @@
-"""
-Hangman AI Backend — using Groq (free)
-Path: hangman/app.py
-Run: python app.py
-"""
-
-from flask import Flask, jsonify, request
-from flask_cors import CORS
-from groq import Groq
-import random
-"""
-Hangman AI Backend — using Groq (free)
-Path: hangman/app.py
-"""
-
-from flask import Flask, jsonify, request, render_template
-from flask_cors import CORS
+import streamlit as st
 from groq import Groq
 import random
 import os
@@ -22,10 +6,195 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-app = Flask(__name__)
-CORS(app)
+# ── Page config ──────────────────────────────────────────────────────────────
+st.set_page_config(
+    page_title="Hangman AI",
+    page_icon="🎮",
+    layout="centered"
+)
 
-# ── Word bank by category ────────────────────────────────────────────────────
+# ── Custom CSS ───────────────────────────────────────────────────────────────
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap');
+
+body, .stApp {
+    background-color: #0d0d0f !important;
+    color: #f0f0f0 !important;
+    font-family: 'Space Mono', monospace !important;
+}
+
+h1 {
+    font-family: 'Bebas Neue', sans-serif !important;
+    font-size: 3.5rem !important;
+    color: #e8ff47 !important;
+    text-shadow: 3px 3px 0 #5a6200, 6px 6px 0 #2a2e00;
+    letter-spacing: 0.08em;
+    margin-bottom: 0 !important;
+}
+
+.category-tag {
+    background: #2a2a35;
+    border: 1px solid #6b6b80;
+    color: #47c8ff;
+    padding: 4px 14px;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    display: inline-block;
+    margin-bottom: 20px;
+}
+
+.word-display {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    padding: 24px;
+    background: #141418;
+    border: 1px solid #2a2a35;
+    border-radius: 4px;
+    margin: 16px 0;
+}
+
+.letter-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.letter-char {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.2rem;
+    color: #e8ff47;
+    min-width: 28px;
+    text-align: center;
+}
+
+.letter-blank {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.2rem;
+    color: #3a3a4a;
+    min-width: 28px;
+    text-align: center;
+}
+
+.letter-wrong {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.2rem;
+    color: #ff4757;
+    min-width: 28px;
+    text-align: center;
+}
+
+.letter-line {
+    width: 28px;
+    height: 2px;
+    background: #2a2a35;
+    border-radius: 1px;
+}
+
+.hint-box {
+    background: #141418;
+    border: 1px solid #2a2a35;
+    border-radius: 4px;
+    padding: 16px 20px;
+    font-style: italic;
+    color: #f0f0f0;
+    font-size: 0.9rem;
+    line-height: 1.7;
+    margin: 10px 0;
+}
+
+.wrong-letters-box {
+    background: #1a0a0d;
+    border: 1px solid #ff4757;
+    border-radius: 4px;
+    padding: 10px 16px;
+    color: #ff4757;
+    font-size: 0.85rem;
+    letter-spacing: 0.15em;
+    margin: 8px 0;
+}
+
+.win-box {
+    background: #0a1f14;
+    border: 2px solid #47ff8a;
+    border-radius: 4px;
+    padding: 20px;
+    text-align: center;
+    color: #47ff8a;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.5rem;
+    letter-spacing: 0.1em;
+}
+
+.lose-box {
+    background: #1a0508;
+    border: 2px solid #ff4757;
+    border-radius: 4px;
+    padding: 20px;
+    text-align: center;
+    color: #ff4757;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.5rem;
+    letter-spacing: 0.1em;
+}
+
+.fact-box {
+    background: #141418;
+    border: 1px solid #2a2a35;
+    border-radius: 4px;
+    padding: 16px 20px;
+    font-style: italic;
+    color: #6b6b80;
+    font-size: 0.85rem;
+    line-height: 1.7;
+    margin: 10px 0;
+    text-align: center;
+}
+
+.stButton > button {
+    font-family: 'Space Mono', monospace !important;
+    font-size: 0.75rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.1em !important;
+    text-transform: uppercase !important;
+    border-radius: 4px !important;
+    transition: all 0.2s ease !important;
+}
+
+div[data-testid="stHorizontalBlock"] .stButton > button {
+    width: 100% !important;
+    padding: 8px 4px !important;
+    background: #141418 !important;
+    border: 1px solid #2a2a35 !important;
+    color: #f0f0f0 !important;
+}
+
+div[data-testid="stHorizontalBlock"] .stButton > button:hover {
+    background: #e8ff47 !important;
+    color: #0d0d0f !important;
+    border-color: #e8ff47 !important;
+}
+
+div[data-testid="stHorizontalBlock"] .stButton > button:disabled {
+    opacity: 0.3 !important;
+}
+
+hr {
+    border-color: #2a2a35 !important;
+}
+
+.stSpinner > div {
+    border-top-color: #47c8ff !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ── Word bank ────────────────────────────────────────────────────────────────
 WORD_BANK = {
     "animals": [
         "elephant", "giraffe", "penguin", "dolphin", "crocodile",
@@ -50,237 +219,274 @@ WORD_BANK = {
     ]
 }
 
-client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+BODY_PARTS = ["head", "body", "left arm", "right arm", "left leg", "right leg"]
+MAX_WRONG = 6
+
+# ── Groq client ──────────────────────────────────────────────────────────────
+@st.cache_resource
+def get_groq_client():
+    api_key = os.environ.get("GROQ_API_KEY") or st.secrets.get("GROQ_API_KEY", "")
+    return Groq(api_key=api_key)
+
 MODEL = "llama-3.3-70b-versatile"
 
-
-def pick_word():
+# ── Game state init ───────────────────────────────────────────────────────────
+def init_game():
     category = random.choice(list(WORD_BANK.keys()))
     word = random.choice(WORD_BANK[category])
-    return word, category
+    st.session_state.word = word
+    st.session_state.category = category
+    st.session_state.guessed = set()
+    st.session_state.wrong = []
+    st.session_state.hint_count = 0
+    st.session_state.hints = []
+    st.session_state.game_over = False
+    st.session_state.won = False
+    st.session_state.fun_fact = ""
 
+if "word" not in st.session_state:
+    init_game()
 
-@app.route("/")
-def home():
-    return render_template("index.html")
-
-
-@app.route("/api/new-game", methods=["GET"])
-def new_game():
-    word, category = pick_word()
-    return jsonify({
-        "word_length": len(word),
-        "category": category,
-        "word": word,
-        "max_wrong": 6
-    })
-
-
-@app.route("/api/hint", methods=["POST"])
-def get_hint():
-    data = request.get_json()
-    word = data.get("word", "")
-    category = data.get("category", "")
-    guessed_letters = data.get("guessed_letters", [])
-    wrong_guesses = data.get("wrong_guesses", [])
-    revealed_pattern = data.get("revealed_pattern", "")
-    hint_number = data.get("hint_number", 1)
+# ── AI functions ──────────────────────────────────────────────────────────────
+def get_hint(hint_number):
+    client = get_groq_client()
+    word = st.session_state.word
+    category = st.session_state.category
+    guessed = list(st.session_state.guessed)
+    wrong = st.session_state.wrong
+    revealed = " ".join([ch if ch in st.session_state.guessed else "_" for ch in word])
 
     hint_levels = {
         1: "Give a vague, creative, poetic clue about the word. Do NOT mention the word or any of its letters directly.",
         2: "Give a more specific clue — mention the category, a key property, or an interesting fact. Still do not reveal the word.",
-        3: f"Give a strong hint. You may confirm any correct letters already found ({', '.join(guessed_letters) if guessed_letters else 'none yet'}) and hint at the structure. Still don't say the word outright."
+        3: f"Give a strong hint. You may confirm correct letters found ({', '.join(guessed) or 'none'}) and hint at structure. Still don't say the word."
     }
 
     prompt = f"""You are the hint-giver in a Hangman game.
-
-Word to guess: "{word}"
-Category: {category}
-Letters already guessed correctly: {', '.join([l for l in guessed_letters if l in word]) or 'none'}
-Wrong guesses: {', '.join(wrong_guesses) or 'none'}
-Current revealed pattern: "{revealed_pattern}"
-Hint level requested: {hint_number}/3
-
-Instructions: {hint_levels.get(hint_number, hint_levels[1])}
-
-Respond with ONLY the hint text — one or two sentences, clever and engaging. No preamble."""
+Word: "{word}", Category: {category}
+Correct letters: {', '.join([l for l in guessed if l in word]) or 'none'}
+Wrong guesses: {', '.join(wrong) or 'none'}
+Revealed: "{revealed}"
+Hint level: {hint_number}/3
+Instructions: {hint_levels[hint_number]}
+Respond with ONLY the hint — 1-2 sentences. No preamble."""
 
     try:
         response = client.chat.completions.create(
-            model=MODEL,
-            max_tokens=150,
+            model=MODEL, max_tokens=150,
             messages=[{"role": "user", "content": prompt}]
         )
-        hint_text = response.choices[0].message.content.strip()
-        return jsonify({"hint": hint_text})
+        return response.choices[0].message.content.strip()
     except Exception as e:
-        print(f"Hint error: {e}")
-        return jsonify({"hint": "AI hint unavailable right now."}), 200
+        return f"Hint unavailable: {e}"
 
 
-@app.route("/api/word-reveal-story", methods=["POST"])
-def word_reveal_story():
-    data = request.get_json()
-    word = data.get("word", "")
-    category = data.get("category", "")
-    won = data.get("won", False)
-
+def get_fun_fact(word, category, won):
+    client = get_groq_client()
     outcome = "won and correctly guessed" if won else "lost and failed to guess"
-
     prompt = f"""The player just {outcome} the word "{word}" (category: {category}) in Hangman.
-
-Write a single fun, surprising, or fascinating sentence about "{word}" that the player would love to read right now.
-Be enthusiastic but brief. Start directly with the fact — no intro phrases like "Did you know"."""
-
+Write a single fun, surprising sentence about "{word}". Be enthusiastic but brief. No "Did you know" openers."""
     try:
         response = client.chat.completions.create(
-            model=MODEL,
-            max_tokens=100,
+            model=MODEL, max_tokens=100,
             messages=[{"role": "user", "content": prompt}]
         )
-        fun_fact = response.choices[0].message.content.strip()
-        return jsonify({"fun_fact": fun_fact})
-    except Exception as e:
-        print(f"Story error: {e}")
-        return jsonify({"fun_fact": "A fun fact could not be loaded."}), 200
+        return response.choices[0].message.content.strip()
+    except:
+        return "Great game!"
 
-
-if __name__ == "__main__":
-    key = os.environ.get("GROQ_API_KEY", "")
-    if not key:
-        print("WARNING: GROQ_API_KEY not set in .env file!")
-    else:
-        print(f"Groq API Key loaded: {key[:12]}...")
-    print("Hangman AI Backend running on http://localhost:5000")
-    app.run(debug=True, port=5000)
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
-
-app = Flask(__name__)
-CORS(app)
-
-# ── Word bank by category ────────────────────────────────────────────────────
-WORD_BANK = {
-    "animals": [
-        "elephant", "giraffe", "penguin", "dolphin", "crocodile",
-        "chameleon", "platypus", "armadillo", "rhinoceros", "hippopotamus"
-    ],
-    "countries": [
-        "australia", "zimbabwe", "portugal", "bangladesh", "switzerland",
-        "mozambique", "kazakhstan", "india", "azerbaijan", "liechtenstein"
-    ],
-    "science": [
-        "photosynthesis", "mitochondria", "chromosome", "electrolysis",
-        "thermodynamics", "hypothesis", "ecosystem", "gravitational",
-        "bioluminescence", "electromagnetic"
-    ],
-    "food": [
-        "biryani", "noodles", "friedrice", "croissant", "momos",
-        "gulabjamun", "butternaan", "jalebi", "ratatouille", "spaghetti"
-    ],
-    "technology": [
-        "algorithm", "blockchain", "encryption", "kubernetes", "javascript",
-        "cybersecurity", "bandwidth", "semiconductor", "repository", "virtualization"
+# ── Draw Hangman (text art) ───────────────────────────────────────────────────
+def draw_hangman(wrong_count):
+    stages = [
+        # 0 wrong
+        """
+  +---+
+  |   |
+      |
+      |
+      |
+      |
+=========""",
+        # 1
+        """
+  +---+
+  |   |
+  O   |
+      |
+      |
+      |
+=========""",
+        # 2
+        """
+  +---+
+  |   |
+  O   |
+  |   |
+      |
+      |
+=========""",
+        # 3
+        """
+  +---+
+  |   |
+  O   |
+ /|   |
+      |
+      |
+=========""",
+        # 4
+        """
+  +---+
+  |   |
+  O   |
+ /|\\  |
+      |
+      |
+=========""",
+        # 5
+        """
+  +---+
+  |   |
+  O   |
+ /|\\  |
+ /    |
+      |
+=========""",
+        # 6
+        """
+  +---+
+  |   |
+  O   |
+ /|\\  |
+ / \\  |
+      |
+=========""",
     ]
-}
+    return stages[min(wrong_count, 6)]
 
-client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
-MODEL = "llama-3.3-70b-versatile"  # free model on Groq
+# ── Render word display ───────────────────────────────────────────────────────
+def render_word():
+    word = st.session_state.word
+    guessed = st.session_state.guessed
+    game_over = st.session_state.game_over
+    won = st.session_state.won
 
+    html = '<div class="word-display">'
+    for ch in word:
+        if ch in guessed:
+            html += f'<div class="letter-box"><div class="letter-char">{ch.upper()}</div><div class="letter-line"></div></div>'
+        elif game_over and not won:
+            html += f'<div class="letter-box"><div class="letter-wrong">{ch.upper()}</div><div class="letter-line"></div></div>'
+        else:
+            html += f'<div class="letter-box"><div class="letter-blank">_</div><div class="letter-line"></div></div>'
+    html += '</div>'
+    st.markdown(html, unsafe_allow_html=True)
 
-def pick_word():
-    category = random.choice(list(WORD_BANK.keys()))
-    word = random.choice(WORD_BANK[category])
-    return word, category
+# ── Check game state ──────────────────────────────────────────────────────────
+def check_game():
+    word = st.session_state.word
+    guessed = st.session_state.guessed
+    wrong = st.session_state.wrong
 
+    if all(ch in guessed for ch in word):
+        st.session_state.game_over = True
+        st.session_state.won = True
+        st.session_state.fun_fact = get_fun_fact(word, st.session_state.category, True)
 
-@app.route("/api/new-game", methods=["GET"])
-def new_game():
-    word, category = pick_word()
-    return jsonify({
-        "word_length": len(word),
-        "category": category,
-        "word": word,
-        "max_wrong": 6
-    })
+    elif len(wrong) >= MAX_WRONG:
+        st.session_state.game_over = True
+        st.session_state.won = False
+        st.session_state.fun_fact = get_fun_fact(word, st.session_state.category, False)
 
+# ── UI ────────────────────────────────────────────────────────────────────────
+# Header
+col_title, col_cat = st.columns([3, 1])
+with col_title:
+    st.markdown("<h1>HANG<span style='color:#f0f0f0'>MAN</span></h1>", unsafe_allow_html=True)
+with col_cat:
+    st.markdown(f'<div class="category-tag">📂 {st.session_state.category.upper()}</div>', unsafe_allow_html=True)
 
-@app.route("/api/hint", methods=["POST"])
-def get_hint():
-    data = request.get_json()
-    word = data.get("word", "")
-    category = data.get("category", "")
-    guessed_letters = data.get("guessed_letters", [])
-    wrong_guesses = data.get("wrong_guesses", [])
-    revealed_pattern = data.get("revealed_pattern", "")
-    hint_number = data.get("hint_number", 1)
+st.markdown("<hr>", unsafe_allow_html=True)
 
-    hint_levels = {
-        1: "Give a vague, creative, poetic clue about the word. Do NOT mention the word or any of its letters directly.",
-        2: "Give a more specific clue — mention the category, a key property, or an interesting fact. Still do not reveal the word.",
-        3: f"Give a strong hint. You may confirm any correct letters already found ({', '.join(guessed_letters) if guessed_letters else 'none yet'}) and hint at the structure. Still don't say the word outright."
-    }
+# Main layout
+left, right = st.columns([1, 1.5])
 
-    prompt = f"""You are the hint-giver in a Hangman game.
+with left:
+    # Hangman drawing
+    wrong_count = len(st.session_state.wrong)
+    st.code(draw_hangman(wrong_count), language=None)
+    st.markdown(f"**WRONG: {wrong_count}/{MAX_WRONG}**")
 
-Word to guess: "{word}"
-Category: {category}
-Letters already guessed correctly: {', '.join([l for l in guessed_letters if l in word]) or 'none'}
-Wrong guesses: {', '.join(wrong_guesses) or 'none'}
-Current revealed pattern: "{revealed_pattern}"
-Hint level requested: {hint_number}/3
+    if st.session_state.wrong:
+        wrong_str = "  ".join([l.upper() for l in st.session_state.wrong])
+        st.markdown(f'<div class="wrong-letters-box">✗  {wrong_str}</div>', unsafe_allow_html=True)
 
-Instructions: {hint_levels.get(hint_number, hint_levels[1])}
+with right:
+    # Word display
+    render_word()
 
-Respond with ONLY the hint text — one or two sentences, clever and engaging. No preamble."""
+    st.markdown("<br>", unsafe_allow_html=True)
 
-    try:
-        response = client.chat.completions.create(
-            model=MODEL,
-            max_tokens=150,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        hint_text = response.choices[0].message.content.strip()
-        return jsonify({"hint": hint_text})
-    except Exception as e:
-        print(f"Hint error: {e}")
-        return jsonify({"hint": "AI hint unavailable right now."}), 200
+    # Keyboard — only show if game not over
+    if not st.session_state.game_over:
+        alphabet = "abcdefghijklmnopqrstuvwxyz"
+        rows = [alphabet[:13], alphabet[13:]]
 
+        for row in rows:
+            cols = st.columns(len(row))
+            for i, letter in enumerate(row):
+                with cols[i]:
+                    already_guessed = letter in st.session_state.guessed
+                    if st.button(
+                        letter.upper(),
+                        key=f"key_{letter}",
+                        disabled=already_guessed or st.session_state.game_over
+                    ):
+                        st.session_state.guessed.add(letter)
+                        if letter not in st.session_state.word:
+                            st.session_state.wrong.append(letter)
+                        check_game()
+                        st.rerun()
 
-@app.route("/api/word-reveal-story", methods=["POST"])
-def word_reveal_story():
-    data = request.get_json()
-    word = data.get("word", "")
-    category = data.get("category", "")
-    won = data.get("won", False)
+    # Hint section
+    st.markdown("<hr>", unsafe_allow_html=True)
+    st.markdown("**🤖 AI Hints**")
 
-    outcome = "won and correctly guessed" if won else "lost and failed to guess"
+    hint_count = st.session_state.hint_count
+    dots = "🔵" * hint_count + "⚪" * (3 - hint_count)
+    st.markdown(dots)
 
-    prompt = f"""The player just {outcome} the word "{word}" (category: {category}) in Hangman.
+    for h in st.session_state.hints:
+        st.markdown(f'<div class="hint-box">"{h}"</div>', unsafe_allow_html=True)
 
-Write a single fun, surprising, or fascinating sentence about "{word}" that the player would love to read right now.
-Be enthusiastic but brief. Start directly with the fact — no intro phrases like "Did you know"."""
+    if not st.session_state.game_over and hint_count < 3:
+        if st.button(f"💡 Get Hint {hint_count + 1}/3", key="hint_btn"):
+            with st.spinner("Thinking..."):
+                hint = get_hint(hint_count + 1)
+                st.session_state.hint_count += 1
+                st.session_state.hints.append(hint)
+                st.rerun()
+    elif hint_count >= 3:
+        st.markdown("*No hints left!*")
 
-    try:
-        response = client.chat.completions.create(
-            model=MODEL,
-            max_tokens=100,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        fun_fact = response.choices[0].message.content.strip()
-        return jsonify({"fun_fact": fun_fact})
-    except Exception as e:
-        print(f"Story error: {e}")
-        return jsonify({"fun_fact": "A fun fact could not be loaded."}), 200
+# ── Game Over ─────────────────────────────────────────────────────────────────
+if st.session_state.game_over:
+    st.markdown("<hr>", unsafe_allow_html=True)
 
-
-if __name__ == "__main__":
-    key = os.environ.get("GROQ_API_KEY", "")
-    if not key:
-        print("WARNING: GROQ_API_KEY not set in .env file!")
+    if st.session_state.won:
+        st.markdown('<div class="win-box">🎉 YOU WIN!</div>', unsafe_allow_html=True)
     else:
-        print(f"Groq API Key loaded: {key[:12]}...")
-    print("Hangman AI Backend running on http://localhost:5000")
-    app.run(debug=True, port=5000)
+        st.markdown(f'<div class="lose-box">💀 GAME OVER<br><span style="font-size:1.2rem;color:#f0f0f0">The word was: {st.session_state.word.upper()}</span></div>', unsafe_allow_html=True)
+
+    if st.session_state.fun_fact:
+        st.markdown(f'<div class="fact-box">💡 {st.session_state.fun_fact}</div>', unsafe_allow_html=True)
+
+    if st.button("↺ Play Again", key="play_again"):
+        init_game()
+        st.rerun()
+
+# ── New Game button ───────────────────────────────────────────────────────────
+st.markdown("<br>", unsafe_allow_html=True)
+if st.button("↺ New Game", key="new_game"):
+    init_game()
+    st.rerun()
