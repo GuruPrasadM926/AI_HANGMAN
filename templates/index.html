@@ -1,0 +1,1371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>HANGMAN — AI Edition</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet"/>
+<style>
+/* ── Reset & Variables ─────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0d0d0f;
+  --surface:   #141418;
+  --border:    #2a2a35;
+  --accent:    #e8ff47;
+  --accent2:   #ff4757;
+  --accent3:   #47c8ff;
+  --text:      #f0f0f0;
+  --muted:     #6b6b80;
+  --win:       #47ff8a;
+  --radius:    4px;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Space Mono', monospace;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 16px 48px;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Grain overlay */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none; z-index: 0; opacity: 0.6;
+}
+
+/* ── Header ────────────────────────────────────────── */
+header {
+  width: 100%; max-width: 900px;
+  display: flex; align-items: baseline; justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px; margin-bottom: 32px;
+  position: relative; z-index: 1;
+}
+
+.logo {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(2rem, 6vw, 3.5rem);
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  text-shadow: 3px 3px 0 #5a6200, 6px 6px 0 #2a2e00;
+  line-height: 1;
+}
+
+.logo span { color: var(--text); }
+
+.category-badge {
+  font-size: 0.65rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  background: var(--border);
+  border: 1px solid var(--muted);
+  padding: 4px 12px; border-radius: 2px;
+  color: var(--accent3);
+}
+
+/* ── Main Layout ───────────────────────────────────── */
+.game-layout {
+  width: 100%; max-width: 900px;
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 32px;
+  position: relative; z-index: 1;
+}
+@media (max-width: 640px) {
+  .game-layout { grid-template-columns: 1fr; }
+}
+
+/* ── Gallows (SVG Panel) ───────────────────────────── */
+.gallows-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 24px;
+  position: relative;
+}
+
+.wrong-count {
+  position: absolute; top: 12px; right: 14px;
+  font-size: 0.7rem; color: var(--muted);
+  letter-spacing: 0.1em;
+}
+
+.wrong-count span { color: var(--accent2); font-weight: 700; }
+
+#gallows-svg {
+  width: 100%; max-width: 220px;
+}
+
+/* SVG parts */
+.part {
+  stroke: var(--text); stroke-width: 3;
+  stroke-linecap: round; fill: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.part.show { opacity: 1; }
+#head { fill: none; stroke: var(--text); }
+#head.show { stroke: var(--accent2); }
+#body.show, #la.show, #ra.show, #ll.show, #rl.show { stroke: var(--accent2); }
+
+/* Wrong letters display */
+.wrong-letters {
+  margin-top: 16px;
+  display: flex; flex-wrap: wrap; gap: 6px;
+  justify-content: center;
+}
+
+.wrong-letter {
+  width: 28px; height: 28px;
+  border: 1px solid var(--accent2);
+  border-radius: 2px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.8rem; font-weight: 700;
+  color: var(--accent2);
+  animation: popIn 0.2s ease;
+}
+
+/* ── Right Panel ───────────────────────────────────── */
+.right-panel { display: flex; flex-direction: column; gap: 20px; }
+
+/* Word display */
+.word-display {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  justify-content: center; align-items: flex-end;
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  min-height: 80px;
+}
+
+.letter-slot {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 4px;
+}
+
+.letter-char {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2rem;
+  color: var(--accent);
+  min-width: 24px; text-align: center;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.letter-char.revealed { opacity: 1; transform: translateY(0); }
+.letter-char.placeholder { color: var(--muted); opacity: 0.3; }
+
+.letter-line {
+  width: 24px; height: 2px;
+  background: var(--border);
+  border-radius: 1px;
+}
+
+/* Keyboard */
+.keyboard {
+  display: grid;
+  grid-template-columns: repeat(13, 1fr);
+  gap: 5px;
+}
+
+.key-btn {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.7rem; font-weight: 700;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 4px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.key-btn:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+.key-btn:disabled { cursor: default; }
+.key-btn.correct {
+  background: #1a3326;
+  border-color: var(--win);
+  color: var(--win);
+}
+.key-btn.wrong {
+  background: #2a1219;
+  border-color: var(--accent2);
+  color: var(--accent2);
+  text-decoration: line-through;
+}
+
+/* Hint panel */
+.hint-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.hint-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.hint-title {
+  font-size: 0.65rem; letter-spacing: 0.2em;
+  text-transform: uppercase; color: var(--accent3);
+}
+
+.hint-dots {
+  display: flex; gap: 6px;
+}
+
+.hint-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--border);
+  border: 1px solid var(--muted);
+  transition: background 0.3s;
+}
+.hint-dot.used { background: var(--accent3); border-color: var(--accent3); }
+
+.hint-text {
+  font-size: 0.82rem; line-height: 1.7;
+  color: var(--muted);
+  font-style: italic;
+  min-height: 40px;
+  transition: color 0.3s;
+}
+.hint-text.loaded { color: var(--text); }
+
+.hint-btn {
+  margin-top: 12px;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.7rem; letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: transparent;
+  border: 1px solid var(--accent3);
+  color: var(--accent3);
+  padding: 8px 16px; border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.hint-btn:hover:not(:disabled) {
+  background: var(--accent3); color: var(--bg);
+}
+.hint-btn:disabled { opacity: 0.35; cursor: default; }
+
+/* ── Game Over Overlay ─────────────────────────────── */
+#overlay {
+  position: fixed; inset: 0;
+  background: rgba(13,13,15,0.92);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.4s ease;
+  backdrop-filter: blur(4px);
+}
+#overlay.show { opacity: 1; pointer-events: all; }
+
+.overlay-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 40px 48px;
+  text-align: center;
+  max-width: 440px; width: 90%;
+  transform: translateY(20px);
+  transition: transform 0.4s ease;
+}
+#overlay.show .overlay-box { transform: translateY(0); }
+
+.overlay-result {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 4rem; letter-spacing: 0.1em;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+.overlay-result.win { color: var(--win); }
+.overlay-result.lose { color: var(--accent2); }
+
+.overlay-word {
+  font-size: 1.4rem;
+  letter-spacing: 0.2em;
+  color: var(--accent);
+  margin-bottom: 20px;
+  font-family: 'Bebas Neue', sans-serif;
+}
+
+.overlay-fact {
+  font-size: 0.8rem; line-height: 1.8;
+  color: var(--muted); font-style: italic;
+  margin-bottom: 28px;
+  min-height: 50px;
+}
+
+.play-again-btn {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.8rem; letter-spacing: 0.15em;
+  text-transform: uppercase; font-weight: 700;
+  background: var(--accent); color: var(--bg);
+  border: none; padding: 14px 32px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 4px 4px 0 #5a6200;
+}
+.play-again-btn:hover {
+  transform: translate(-2px,-2px);
+  box-shadow: 6px 6px 0 #5a6200;
+}
+.play-again-btn:active {
+  transform: translate(2px,2px);
+  box-shadow: 2px 2px 0 #5a6200;
+}
+
+/* ── Loading spinner ───────────────────────────────── */
+.spinner {
+  display: inline-block; width: 12px; height: 12px;
+  border: 2px solid var(--muted);
+  border-top-color: var(--accent3);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+}
+
+/* ── Animations ────────────────────────────────────── */
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes popIn {
+  from { transform: scale(0.5); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  20%,60% { transform: translateX(-6px); }
+  40%,80% { transform: translateX(6px); }
+}
+.shake { animation: shake 0.4s ease; }
+
+/* ── New Game bar ──────────────────────────────────── */
+.new-game-bar {
+  width: 100%; max-width: 900px;
+  margin-top: 20px;
+  display: flex; justify-content: flex-end;
+  position: relative; z-index: 1;
+}
+.new-game-btn {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.7rem; letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: transparent;
+  border: 1px solid var(--muted);
+  color: var(--muted);
+  padding: 8px 18px; border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.new-game-btn:hover { border-color: var(--accent); color: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────── -->
+<header>
+  <div class="logo">HANG<span>MAN</span></div>
+  <div class="category-badge" id="category-badge">loading...</div>
+</header>
+
+<!-- ── Main layout ─────────────────────────────────── -->
+<div class="game-layout">
+
+  <!-- Left: Gallows -->
+  <div class="gallows-panel">
+    <div class="wrong-count">WRONG: <span id="wrong-count">0</span>/6</div>
+
+    <svg id="gallows-svg" viewBox="0 0 200 240" xmlns="http://www.w3.org/2000/svg">
+      <!-- Static scaffold -->
+      <line x1="20" y1="230" x2="180" y2="230" stroke="#3a3a4a" stroke-width="4" stroke-linecap="round"/>
+      <line x1="60" y1="230" x2="60" y2="20"  stroke="#3a3a4a" stroke-width="4" stroke-linecap="round"/>
+      <line x1="60" y1="20"  x2="130" y2="20" stroke="#3a3a4a" stroke-width="4" stroke-linecap="round"/>
+      <line x1="130" y1="20" x2="130" y2="46" stroke="#3a3a4a" stroke-width="4" stroke-linecap="round"/>
+      <!-- Body parts (revealed on wrong guesses) -->
+      <circle id="head" class="part" cx="130" cy="62" r="16"/>
+      <line   id="body" class="part" x1="130" y1="78" x2="130" y2="140"/>
+      <line   id="la"   class="part" x1="130" y1="95" x2="105" y2="120"/>
+      <line   id="ra"   class="part" x1="130" y1="95" x2="155" y2="120"/>
+      <line   id="ll"   class="part" x1="130" y1="140" x2="105" y2="175"/>
+      <line   id="rl"   class="part" x1="130" y1="140" x2="155" y2="175"/>
+    </svg>
+
+    <div class="wrong-letters" id="wrong-letters"></div>
+  </div>
+
+  <!-- Right: gameplay -->
+  <div class="right-panel">
+
+    <!-- Word slots -->
+    <div class="word-display" id="word-display"></div>
+
+    <!-- Keyboard -->
+    <div class="keyboard" id="keyboard"></div>
+
+    <!-- Hint panel -->
+    <div class="hint-panel">
+      <div class="hint-header">
+        <div class="hint-title">🤖 AI Hints</div>
+        <div class="hint-dots" id="hint-dots">
+          <div class="hint-dot"></div>
+          <div class="hint-dot"></div>
+          <div class="hint-dot"></div>
+        </div>
+      </div>
+      <div class="hint-text" id="hint-text">Ask for a hint when you're stuck…</div>
+      <button class="hint-btn" id="hint-btn" onclick="getHint()">Get Hint</button>
+    </div>
+
+  </div>
+</div>
+
+<div class="new-game-bar">
+  <button class="new-game-btn" onclick="startNewGame()">↺ New Game</button>
+</div>
+
+<!-- ── Game Over Overlay ─────────────────────────────── -->
+<div id="overlay">
+  <div class="overlay-box">
+    <div class="overlay-result" id="overlay-result">YOU WIN</div>
+    <div class="overlay-word" id="overlay-word"></div>
+    <div class="overlay-fact" id="overlay-fact"><span class="spinner"></span></div>
+    <button class="play-again-btn" onclick="startNewGame()">Play Again</button>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:5000/api';
+
+// ── State ────────────────────────────────────────────
+let state = {
+  word: '', category: '',
+  guessed: new Set(),
+  wrong: [],
+  hintCount: 0,
+  maxWrong: 6,
+  over: false
+};
+
+const BODY_PART_IDS = ['head','body','la','ra','ll','rl'];
+
+// ── Init ─────────────────────────────────────────────
+async function startNewGame() {
+  document.getElementById('overlay').classList.remove('show');
+
+  const res = await fetch(`${API}/new-game`);
+  const data = await res.json();
+
+  state = {
+    word: data.word,
+    category: data.category,
+    guessed: new Set(),
+    wrong: [],
+    hintCount: 0,
+    maxWrong: data.max_wrong,
+    over: false
+  };
+
+  document.getElementById('category-badge').textContent = '📂 ' + data.category.toUpperCase();
+  renderAll();
+}
+
+// ── Render ───────────────────────────────────────────
+function renderAll() {
+  renderWord();
+  renderKeyboard();
+  renderGallows();
+  renderHintPanel();
+}
+
+function renderWord() {
+  const el = document.getElementById('word-display');
+  el.innerHTML = '';
+  for (const ch of state.word) {
+    const slot = document.createElement('div');
+    slot.className = 'letter-slot';
+
+    const charEl = document.createElement('div');
+    const revealed = state.guessed.has(ch);
+    charEl.className = 'letter-char' + (revealed ? ' revealed' : ' placeholder');
+    charEl.textContent = revealed ? ch.toUpperCase() : '_';
+
+    const line = document.createElement('div');
+    line.className = 'letter-line';
+
+    slot.appendChild(charEl);
+    slot.appendChild(line);
+    el.appendChild(slot);
+  }
+}
+
+function renderKeyboard() {
+  const el = document.getElementById('keyboard');
+  el.innerHTML = '';
+  for (let i = 0; i < 26; i++) {
+    const letter = String.fromCharCode(97 + i);
+    const btn = document.createElement('button');
+    btn.className = 'key-btn';
+    btn.textContent = letter.toUpperCase();
+    btn.id = 'key-' + letter;
+
+    if (state.guessed.has(letter)) {
+      const correct = state.word.includes(letter);
+      btn.classList.add(correct ? 'correct' : 'wrong');
+      btn.disabled = true;
+    }
+
+    btn.onclick = () => guess(letter);
+    el.appendChild(btn);
+  }
+}
+
+function renderGallows() {
+  const count = state.wrong.length;
+  document.getElementById('wrong-count').textContent = count;
+
+  BODY_PART_IDS.forEach((id, i) => {
+    const el = document.getElementById(id);
+    el.classList.toggle('show', i < count);
+  });
+
+  const wl = document.getElementById('wrong-letters');
+  wl.innerHTML = '';
+  for (const l of state.wrong) {
+    const d = document.createElement('div');
+    d.className = 'wrong-letter';
+    d.textContent = l.toUpperCase();
+    wl.appendChild(d);
+  }
+}
+
+function renderHintPanel() {
+  const dots = document.getElementById('hint-dots').querySelectorAll('.hint-dot');
+  dots.forEach((d, i) => d.classList.toggle('used', i < state.hintCount));
+
+  const btn = document.getElementById('hint-btn');
+  btn.disabled = state.hintCount >= 3 || state.over;
+  btn.textContent = state.hintCount >= 3 ? 'No hints left' : `Get Hint ${state.hintCount+1}/3`;
+}
+
+// ── Guess ─────────────────────────────────────────────
+function guess(letter) {
+  if (state.over || state.guessed.has(letter)) return;
+  state.guessed.add(letter);
+
+  if (!state.word.includes(letter)) {
+    state.wrong.push(letter);
+    // shake gallows
+    const svg = document.getElementById('gallows-svg');
+    svg.classList.remove('shake');
+    void svg.offsetWidth;
+    svg.classList.add('shake');
+  }
+
+  renderAll();
+  checkGameOver();
+}
+
+// Keyboard support
+document.addEventListener('keydown', e => {
+  const l = e.key.toLowerCase();
+  if (/^[a-z]$/.test(l) && !state.over) guess(l);
+});
+
+// ── Win / Lose ────────────────────────────────────────
+function checkGameOver() {
+  const won = [...state.word].every(ch => state.guessed.has(ch));
+  const lost = state.wrong.length >= state.maxWrong;
+
+  if (!won && !lost) return;
+  state.over = true;
+  renderHintPanel();
+
+  // show all letters
+  if (lost) revealWord();
+
+  setTimeout(() => showOverlay(won), 600);
+}
+
+function revealWord() {
+  const el = document.getElementById('word-display');
+  el.querySelectorAll('.letter-char').forEach((ch, i) => {
+    ch.textContent = state.word[i].toUpperCase();
+    ch.classList.add('revealed');
+    if (!state.guessed.has(state.word[i])) ch.style.color = 'var(--accent2)';
+  });
+}
+
+async function showOverlay(won) {
+  const overlay = document.getElementById('overlay');
+  const result  = document.getElementById('overlay-result');
+  const wordEl  = document.getElementById('overlay-word');
+  const factEl  = document.getElementById('overlay-fact');
+
+  result.textContent = won ? 'YOU WIN!' : 'GAME OVER';
+  result.className   = 'overlay-result ' + (won ? 'win' : 'lose');
+  wordEl.textContent = state.word.toUpperCase();
+  factEl.innerHTML   = '<span class="spinner"></span>';
+
+  overlay.classList.add('show');
+
+  try {
+    const res = await fetch(`${API}/word-reveal-story`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ word: state.word, category: state.category, won })
+    });
+    const data = await res.json();
+    factEl.textContent = data.fun_fact || 'No fun fact available.';
+  } catch(err) {
+    factEl.textContent = 'Could not load fun fact.';
+  }
+}
+
+// ── Hints ─────────────────────────────────────────────
+async function getHint() {
+  if (state.hintCount >= 3 || state.over) return;
+
+  state.hintCount++;
+  renderHintPanel();
+
+  const hintText = document.getElementById('hint-text');
+  hintText.classList.remove('loaded');
+  hintText.innerHTML = '<span class="spinner"></span> Thinking…';
+
+  const revealedPattern = [...state.word]
+    .map(ch => state.guessed.has(ch) ? ch : '_')
+    .join(' ');
+
+  try {
+    const res = await fetch(`${API}/hint`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        word: state.word,
+        category: state.category,
+        guessed_letters: [...state.guessed],
+        wrong_guesses: state.wrong,
+        revealed_pattern: revealedPattern,
+        hint_number: state.hintCount
+      })
+    });
+    const data = await res.json();
+    const hint = data.hint || data.error || 'No hint available.';
+    hintText.textContent = `"${hint}"`;
+    hintText.classList.add('loaded');
+  } catch(err) {
+    hintText.textContent = 'Could not reach AI hint server. Is the backend running?';
+  }
+}
+
+// ── Start ─────────────────────────────────────────────
+startNewGame();
+</script>
+</body><!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>HANGMAN — AI Edition</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet"/>
+<style>
+/* ── Reset & Variables ─────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0d0d0f;
+  --surface:   #141418;
+  --border:    #2a2a35;
+  --accent:    #e8ff47;
+  --accent2:   #ff4757;
+  --accent3:   #47c8ff;
+  --text:      #f0f0f0;
+  --muted:     #6b6b80;
+  --win:       #47ff8a;
+  --radius:    4px;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Space Mono', monospace;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 16px 48px;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Grain overlay */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none; z-index: 0; opacity: 0.6;
+}
+
+/* ── Header ────────────────────────────────────────── */
+header {
+  width: 100%; max-width: 900px;
+  display: flex; align-items: baseline; justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px; margin-bottom: 32px;
+  position: relative; z-index: 1;
+}
+
+.logo {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(2rem, 6vw, 3.5rem);
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  text-shadow: 3px 3px 0 #5a6200, 6px 6px 0 #2a2e00;
+  line-height: 1;
+}
+
+.logo span { color: var(--text); }
+
+.category-badge {
+  font-size: 0.65rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  background: var(--border);
+  border: 1px solid var(--muted);
+  padding: 4px 12px; border-radius: 2px;
+  color: var(--accent3);
+}
+
+/* ── Main Layout ───────────────────────────────────── */
+.game-layout {
+  width: 100%; max-width: 900px;
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 32px;
+  position: relative; z-index: 1;
+}
+@media (max-width: 640px) {
+  .game-layout { grid-template-columns: 1fr; }
+}
+
+/* ── Gallows (SVG Panel) ───────────────────────────── */
+.gallows-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 24px;
+  position: relative;
+}
+
+.wrong-count {
+  position: absolute; top: 12px; right: 14px;
+  font-size: 0.7rem; color: var(--muted);
+  letter-spacing: 0.1em;
+}
+
+.wrong-count span { color: var(--accent2); font-weight: 700; }
+
+#gallows-svg {
+  width: 100%; max-width: 220px;
+}
+
+/* SVG parts */
+.part {
+  stroke: var(--text); stroke-width: 3;
+  stroke-linecap: round; fill: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.part.show { opacity: 1; }
+#head { fill: none; stroke: var(--text); }
+#head.show { stroke: var(--accent2); }
+#body.show, #la.show, #ra.show, #ll.show, #rl.show { stroke: var(--accent2); }
+
+/* Wrong letters display */
+.wrong-letters {
+  margin-top: 16px;
+  display: flex; flex-wrap: wrap; gap: 6px;
+  justify-content: center;
+}
+
+.wrong-letter {
+  width: 28px; height: 28px;
+  border: 1px solid var(--accent2);
+  border-radius: 2px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.8rem; font-weight: 700;
+  color: var(--accent2);
+  animation: popIn 0.2s ease;
+}
+
+/* ── Right Panel ───────────────────────────────────── */
+.right-panel { display: flex; flex-direction: column; gap: 20px; }
+
+/* Word display */
+.word-display {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  justify-content: center; align-items: flex-end;
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  min-height: 80px;
+}
+
+.letter-slot {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 4px;
+}
+
+.letter-char {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2rem;
+  color: var(--accent);
+  min-width: 24px; text-align: center;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.letter-char.revealed { opacity: 1; transform: translateY(0); }
+.letter-char.placeholder { color: var(--muted); opacity: 0.3; }
+
+.letter-line {
+  width: 24px; height: 2px;
+  background: var(--border);
+  border-radius: 1px;
+}
+
+/* Keyboard */
+.keyboard {
+  display: grid;
+  grid-template-columns: repeat(13, 1fr);
+  gap: 5px;
+}
+
+.key-btn {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.7rem; font-weight: 700;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 4px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.key-btn:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+.key-btn:disabled { cursor: default; }
+.key-btn.correct {
+  background: #1a3326;
+  border-color: var(--win);
+  color: var(--win);
+}
+.key-btn.wrong {
+  background: #2a1219;
+  border-color: var(--accent2);
+  color: var(--accent2);
+  text-decoration: line-through;
+}
+
+/* Hint panel */
+.hint-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.hint-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.hint-title {
+  font-size: 0.65rem; letter-spacing: 0.2em;
+  text-transform: uppercase; color: var(--accent3);
+}
+
+.hint-dots {
+  display: flex; gap: 6px;
+}
+
+.hint-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--border);
+  border: 1px solid var(--muted);
+  transition: background 0.3s;
+}
+.hint-dot.used { background: var(--accent3); border-color: var(--accent3); }
+
+.hint-text {
+  font-size: 0.82rem; line-height: 1.7;
+  color: var(--muted);
+  font-style: italic;
+  min-height: 40px;
+  transition: color 0.3s;
+}
+.hint-text.loaded { color: var(--text); }
+
+.hint-btn {
+  margin-top: 12px;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.7rem; letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: transparent;
+  border: 1px solid var(--accent3);
+  color: var(--accent3);
+  padding: 8px 16px; border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.hint-btn:hover:not(:disabled) {
+  background: var(--accent3); color: var(--bg);
+}
+.hint-btn:disabled { opacity: 0.35; cursor: default; }
+
+/* ── Game Over Overlay ─────────────────────────────── */
+#overlay {
+  position: fixed; inset: 0;
+  background: rgba(13,13,15,0.92);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.4s ease;
+  backdrop-filter: blur(4px);
+}
+#overlay.show { opacity: 1; pointer-events: all; }
+
+.overlay-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 40px 48px;
+  text-align: center;
+  max-width: 440px; width: 90%;
+  transform: translateY(20px);
+  transition: transform 0.4s ease;
+}
+#overlay.show .overlay-box { transform: translateY(0); }
+
+.overlay-result {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 4rem; letter-spacing: 0.1em;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+.overlay-result.win { color: var(--win); }
+.overlay-result.lose { color: var(--accent2); }
+
+.overlay-word {
+  font-size: 1.4rem;
+  letter-spacing: 0.2em;
+  color: var(--accent);
+  margin-bottom: 20px;
+  font-family: 'Bebas Neue', sans-serif;
+}
+
+.overlay-fact {
+  font-size: 0.8rem; line-height: 1.8;
+  color: var(--muted); font-style: italic;
+  margin-bottom: 28px;
+  min-height: 50px;
+}
+
+.play-again-btn {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.8rem; letter-spacing: 0.15em;
+  text-transform: uppercase; font-weight: 700;
+  background: var(--accent); color: var(--bg);
+  border: none; padding: 14px 32px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 4px 4px 0 #5a6200;
+}
+.play-again-btn:hover {
+  transform: translate(-2px,-2px);
+  box-shadow: 6px 6px 0 #5a6200;
+}
+.play-again-btn:active {
+  transform: translate(2px,2px);
+  box-shadow: 2px 2px 0 #5a6200;
+}
+
+/* ── Loading spinner ───────────────────────────────── */
+.spinner {
+  display: inline-block; width: 12px; height: 12px;
+  border: 2px solid var(--muted);
+  border-top-color: var(--accent3);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+}
+
+/* ── Animations ────────────────────────────────────── */
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes popIn {
+  from { transform: scale(0.5); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  20%,60% { transform: translateX(-6px); }
+  40%,80% { transform: translateX(6px); }
+}
+.shake { animation: shake 0.4s ease; }
+
+/* ── New Game bar ──────────────────────────────────── */
+.new-game-bar {
+  width: 100%; max-width: 900px;
+  margin-top: 20px;
+  display: flex; justify-content: flex-end;
+  position: relative; z-index: 1;
+}
+.new-game-btn {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.7rem; letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: transparent;
+  border: 1px solid var(--muted);
+  color: var(--muted);
+  padding: 8px 18px; border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.new-game-btn:hover { border-color: var(--accent); color: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────── -->
+<header>
+  <div class="logo">HANG<span>MAN</span></div>
+  <div class="category-badge" id="category-badge">loading...</div>
+</header>
+
+<!-- ── Main layout ─────────────────────────────────── -->
+<div class="game-layout">
+
+  <!-- Left: Gallows -->
+  <div class="gallows-panel">
+    <div class="wrong-count">WRONG: <span id="wrong-count">0</span>/6</div>
+
+    <svg id="gallows-svg" viewBox="0 0 200 240" xmlns="http://www.w3.org/2000/svg">
+      <!-- Static scaffold -->
+      <line x1="20" y1="230" x2="180" y2="230" stroke="#3a3a4a" stroke-width="4" stroke-linecap="round"/>
+      <line x1="60" y1="230" x2="60" y2="20"  stroke="#3a3a4a" stroke-width="4" stroke-linecap="round"/>
+      <line x1="60" y1="20"  x2="130" y2="20" stroke="#3a3a4a" stroke-width="4" stroke-linecap="round"/>
+      <line x1="130" y1="20" x2="130" y2="46" stroke="#3a3a4a" stroke-width="4" stroke-linecap="round"/>
+      <!-- Body parts (revealed on wrong guesses) -->
+      <circle id="head" class="part" cx="130" cy="62" r="16"/>
+      <line   id="body" class="part" x1="130" y1="78" x2="130" y2="140"/>
+      <line   id="la"   class="part" x1="130" y1="95" x2="105" y2="120"/>
+      <line   id="ra"   class="part" x1="130" y1="95" x2="155" y2="120"/>
+      <line   id="ll"   class="part" x1="130" y1="140" x2="105" y2="175"/>
+      <line   id="rl"   class="part" x1="130" y1="140" x2="155" y2="175"/>
+    </svg>
+
+    <div class="wrong-letters" id="wrong-letters"></div>
+  </div>
+
+  <!-- Right: gameplay -->
+  <div class="right-panel">
+
+    <!-- Word slots -->
+    <div class="word-display" id="word-display"></div>
+
+    <!-- Keyboard -->
+    <div class="keyboard" id="keyboard"></div>
+
+    <!-- Hint panel -->
+    <div class="hint-panel">
+      <div class="hint-header">
+        <div class="hint-title">🤖 AI Hints</div>
+        <div class="hint-dots" id="hint-dots">
+          <div class="hint-dot"></div>
+          <div class="hint-dot"></div>
+          <div class="hint-dot"></div>
+        </div>
+      </div>
+      <div class="hint-text" id="hint-text">Ask for a hint when you're stuck…</div>
+      <button class="hint-btn" id="hint-btn" onclick="getHint()">Get Hint</button>
+    </div>
+
+  </div>
+</div>
+
+<div class="new-game-bar">
+  <button class="new-game-btn" onclick="startNewGame()">↺ New Game</button>
+</div>
+
+<!-- ── Game Over Overlay ─────────────────────────────── -->
+<div id="overlay">
+  <div class="overlay-box">
+    <div class="overlay-result" id="overlay-result">YOU WIN</div>
+    <div class="overlay-word" id="overlay-word"></div>
+    <div class="overlay-fact" id="overlay-fact"><span class="spinner"></span></div>
+    <button class="play-again-btn" onclick="startNewGame()">Play Again</button>
+  </div>
+</div>
+
+<script>
+const API = '/api';
+
+// ── State ────────────────────────────────────────────
+let state = {
+  word: '', category: '',
+  guessed: new Set(),
+  wrong: [],
+  hintCount: 0,
+  maxWrong: 6,
+  over: false
+};
+
+const BODY_PARTS = ['head','body','la','ra','ll','rl'];
+
+// ── Init ─────────────────────────────────────────────
+async function startNewGame() {
+  document.getElementById('overlay').classList.remove('show');
+
+  const res = await fetch(`${API}/new-game`);
+  const data = await res.json();
+
+  state = {
+    word: data.word,
+    category: data.category,
+    guessed: new Set(),
+    wrong: [],
+    hintCount: 0,
+    maxWrong: data.max_wrong,
+    over: false
+  };
+
+  document.getElementById('category-badge').textContent = '📂 ' + data.category.toUpperCase();
+  renderAll();
+}
+
+// ── Render ───────────────────────────────────────────
+function renderAll() {
+  renderWord();
+  renderKeyboard();
+  renderGallows();
+  renderHintPanel();
+}
+
+function renderWord() {
+  const el = document.getElementById('word-display');
+  el.innerHTML = '';
+  for (const ch of state.word) {
+    const slot = document.createElement('div');
+    slot.className = 'letter-slot';
+
+    const charEl = document.createElement('div');
+    const revealed = state.guessed.has(ch);
+    charEl.className = 'letter-char' + (revealed ? ' revealed' : ' placeholder');
+    charEl.textContent = revealed ? ch.toUpperCase() : '_';
+
+    const line = document.createElement('div');
+    line.className = 'letter-line';
+
+    slot.appendChild(charEl);
+    slot.appendChild(line);
+    el.appendChild(slot);
+  }
+}
+
+function renderKeyboard() {
+  const el = document.getElementById('keyboard');
+  el.innerHTML = '';
+  for (let i = 0; i < 26; i++) {
+    const letter = String.fromCharCode(97 + i);
+    const btn = document.createElement('button');
+    btn.className = 'key-btn';
+    btn.textContent = letter.toUpperCase();
+    btn.id = 'key-' + letter;
+
+    if (state.guessed.has(letter)) {
+      const correct = state.word.includes(letter);
+      btn.classList.add(correct ? 'correct' : 'wrong');
+      btn.disabled = true;
+    }
+
+    btn.onclick = () => guess(letter);
+    el.appendChild(btn);
+  }
+}
+
+function renderGallows() {
+  const count = state.wrong.length;
+  document.getElementById('wrong-count').textContent = count;
+
+  BODY_PARTS.forEach((id, i) => {
+    const el = document.getElementById(id);
+    el.classList.toggle('show', i < count);
+  });
+
+  const wl = document.getElementById('wrong-letters');
+  wl.innerHTML = '';
+  for (const l of state.wrong) {
+    const d = document.createElement('div');
+    d.className = 'wrong-letter';
+    d.textContent = l.toUpperCase();
+    wl.appendChild(d);
+  }
+}
+
+function renderHintPanel() {
+  const dots = document.getElementById('hint-dots').querySelectorAll('.hint-dot');
+  dots.forEach((d, i) => d.classList.toggle('used', i < state.hintCount));
+
+  const btn = document.getElementById('hint-btn');
+  btn.disabled = state.hintCount >= 3 || state.over;
+  btn.textContent = state.hintCount >= 3 ? 'No hints left' : `Get Hint ${state.hintCount+1}/3`;
+}
+
+// ── Guess ─────────────────────────────────────────────
+function guess(letter) {
+  if (state.over || state.guessed.has(letter)) return;
+  state.guessed.add(letter);
+
+  if (!state.word.includes(letter)) {
+    state.wrong.push(letter);
+    // shake gallows
+    const svg = document.getElementById('gallows-svg');
+    svg.classList.remove('shake');
+    void svg.offsetWidth;
+    svg.classList.add('shake');
+  }
+
+  renderAll();
+  checkGameOver();
+}
+
+// Keyboard support
+document.addEventListener('keydown', e => {
+  const l = e.key.toLowerCase();
+  if (/^[a-z]$/.test(l) && !state.over) guess(l);
+});
+
+// ── Win / Lose ────────────────────────────────────────
+function checkGameOver() {
+  const won = [...state.word].every(ch => state.guessed.has(ch));
+  const lost = state.wrong.length >= state.maxWrong;
+
+  if (!won && !lost) return;
+  state.over = true;
+  renderHintPanel();
+
+  // show all letters
+  if (lost) revealWord();
+
+  setTimeout(() => showOverlay(won), 600);
+}
+
+function revealWord() {
+  const el = document.getElementById('word-display');
+  el.querySelectorAll('.letter-char').forEach((ch, i) => {
+    ch.textContent = state.word[i].toUpperCase();
+    ch.classList.add('revealed');
+    if (!state.guessed.has(state.word[i])) ch.style.color = 'var(--accent2)';
+  });
+}
+
+async function showOverlay(won) {
+  const overlay = document.getElementById('overlay');
+  const result  = document.getElementById('overlay-result');
+  const wordEl  = document.getElementById('overlay-word');
+  const factEl  = document.getElementById('overlay-fact');
+
+  result.textContent = won ? 'YOU WIN!' : 'GAME OVER';
+  result.className   = 'overlay-result ' + (won ? 'win' : 'lose');
+  wordEl.textContent = state.word.toUpperCase();
+  factEl.innerHTML   = '<span class="spinner"></span>';
+
+  overlay.classList.add('show');
+
+  try {
+    const res = await fetch(`${API}/word-reveal-story`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ word: state.word, category: state.category, won })
+    });
+    const data = await res.json();
+    factEl.textContent = data.fun_fact || 'No fun fact available.';
+  } catch(err) {
+    factEl.textContent = 'Could not load fun fact.';
+  }
+}
+
+// ── Hints ─────────────────────────────────────────────
+async function getHint() {
+  if (state.hintCount >= 3 || state.over) return;
+
+  state.hintCount++;
+  renderHintPanel();
+
+  const hintText = document.getElementById('hint-text');
+  hintText.classList.remove('loaded');
+  hintText.innerHTML = '<span class="spinner"></span> Thinking…';
+
+  const revealedPattern = [...state.word]
+    .map(ch => state.guessed.has(ch) ? ch : '_')
+    .join(' ');
+
+  try {
+    const res = await fetch(`${API}/hint`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        word: state.word,
+        category: state.category,
+        guessed_letters: [...state.guessed],
+        wrong_guesses: state.wrong,
+        revealed_pattern: revealedPattern,
+        hint_number: state.hintCount
+      })
+    });
+    const data = await res.json();
+    const hint = data.hint || data.error || 'No hint available.';
+    hintText.textContent = `"${hint}"`;
+    hintText.classList.add('loaded');
+  } catch(err) {
+    hintText.textContent = 'Could not reach AI hint server. Is the backend running?';
+  }
+}
+
+// ── Start ─────────────────────────────────────────────
+startNewGame();
+</script>
+</body>
+</html>
+</html>
