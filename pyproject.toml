@@ -6,3 +6,6 @@ dependencies = [
     "groq",
     "python-dotenv",
 ]
+
+[tool.poetry]
+package-mode = false
