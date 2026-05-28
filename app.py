@@ -258,10 +258,10 @@ def prob_bars_html(probs, top_n=10):
     if not probs:
         return "<p style='color:#3a3a5a;font-size:0.75rem;padding:10px'>Waiting for first guess...</p>"
     top = sorted(probs.items(), key=lambda x: -x[1])[:top_n]
-    mx = top[0][1] if top else 1
+    mx = top[0][1] if top and top[0][1] > 0 else 1
     html = '<div class="bayes-panel"><div class="bayes-title">∑ Posterior Probabilities P(L|Evidence)</div>'
     for letter, prob in top:
-        pct = (prob/mx)*100
+        pct = (prob/mx)*100 if mx > 0 else 0
         val = f"{prob*100:.1f}%"
         color = "#47ff8a" if pct>70 else "#47c8ff" if pct>40 else "#e8ff47" if pct>20 else "#ff9f43"
         is_best = letter == top[0][0]
@@ -399,7 +399,7 @@ if "phase" not in st.session_state:
 # ── HEADER ────────────────────────────────────────────────────────────────────
 c1, c2, c3, c4 = st.columns([2.5, 1, 1, 1])
 with c1:
-    st.markdown("<div class='subtitle'>VTU BAD402 — Artificial Intelligence | Bayesian Strategy</div>", unsafe_allow_html=True)
+    st.markdown("<div class='subtitle'>Bayesian Strategy</div>", unsafe_allow_html=True)
     st.markdown("<h1>AI HANGMAN</h1>", unsafe_allow_html=True)
 with c2:
     st.markdown("<br>", unsafe_allow_html=True)
@@ -457,7 +457,7 @@ if st.session_state.phase == "setup":
                 st.markdown("<span class='badge badge-red'>⚠ Min 3 letters, alphabets only</span>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-        st.markdown("### 🎓 BAD402 Strategy Used")
+        st.markdown("### 🎓Strategy Used")
         st.markdown("""<div style='background:#0f0f1a;border:1px solid #2a1a4a;border-radius:4px;padding:14px;font-family:JetBrains Mono,monospace;font-size:0.72rem;color:#c084fc;line-height:1.9'>
             P(L | E) ∝ P(E | L) × P(L)<br>
             <span style='color:#6b6b80'>L = Letter being considered</span><br>
