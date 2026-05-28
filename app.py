@@ -6,7 +6,7 @@ except ImportError:
     from groq import Groq
 
 import streamlit as st
-import random, os, math
+import random, os
 from collections import defaultdict
 
 # ── Page config ───────────────────────────────────────────────────────────────
@@ -16,103 +16,99 @@ st.set_page_config(page_title="Hangman AI — BAD402", page_icon="🧠", layout=
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap');
-
 *, *::before, *::after { box-sizing: border-box; }
-
 body, .stApp { background-color: #0a0a0f !important; color: #e8e8f0 !important; font-family: 'Space Mono', monospace !important; }
-
-/* Hide streamlit branding */
 #MainMenu, footer, header { visibility: hidden; }
-
-h1 { font-family:'Bebas Neue',sans-serif !important; font-size:3.8rem !important; color:#e8ff47 !important;
+h1 { font-family:'Bebas Neue',sans-serif !important; font-size:3.5rem !important; color:#e8ff47 !important;
      text-shadow:3px 3px 0 #5a6200,6px 6px 0 #2a2e00; letter-spacing:0.08em; margin:0 !important; line-height:1 !important; }
-
-.subtitle { font-size:0.65rem; letter-spacing:0.25em; color:#47c8ff; text-transform:uppercase; margin-bottom:4px; }
-
+h2,h3 { font-family:'Bebas Neue',sans-serif !important; color:#e8e8f0 !important; letter-spacing:0.06em; }
+.subtitle { font-size:0.62rem; letter-spacing:0.25em; color:#47c8ff; text-transform:uppercase; margin-bottom:2px; }
 .badge { display:inline-block; background:#1a1a2e; border:1px solid #47c8ff; color:#47c8ff;
          padding:3px 12px; border-radius:2px; font-size:0.62rem; letter-spacing:0.2em; text-transform:uppercase; }
-
-.badge-yellow { border-color:#e8ff47; color:#e8ff47; }
-.badge-red    { border-color:#ff4757; color:#ff4757; }
-.badge-green  { border-color:#47ff8a; color:#47ff8a; }
-
-hr { border:none; border-top:1px solid #1e1e2e !important; margin:12px 0 !important; }
+.badge-yellow { border-color:#e8ff47 !important; color:#e8ff47 !important; }
+.badge-red    { border-color:#ff4757 !important; color:#ff4757 !important; }
+.badge-green  { border-color:#47ff8a !important; color:#47ff8a !important; }
+.badge-purple { border-color:#c084fc !important; color:#c084fc !important; }
+hr { border:none; border-top:1px solid #1e1e2e !important; margin:10px 0 !important; }
 
 /* Word display */
-.word-wrap { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; padding:20px 16px;
-             background:#0f0f1a; border:1px solid #1e1e2e; border-radius:6px; min-height:80px; align-items:flex-end; }
-.lslot { display:flex; flex-direction:column; align-items:center; gap:3px; }
-.lchar { font-family:'Bebas Neue',sans-serif; font-size:2.4rem; min-width:26px; text-align:center; line-height:1; }
-.lchar.found  { color:#e8ff47; animation:popIn .3s ease; }
+.word-wrap { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; padding:22px 16px;
+             background:#0f0f1a; border:1px solid #1e1e2e; border-radius:6px; min-height:90px; align-items:flex-end; margin:10px 0; }
+.lslot { display:flex; flex-direction:column; align-items:center; gap:4px; }
+.lchar { font-family:'Bebas Neue',sans-serif; font-size:2.6rem; min-width:28px; text-align:center; line-height:1; }
+.lchar.found  { color:#e8ff47; }
 .lchar.blank  { color:#2a2a3a; }
-.lchar.reveal { color:#ff4757; }
-.lline { width:26px; height:2px; background:#2a2a3a; border-radius:1px; }
+.lline { width:28px; height:2px; background:#2a2a3a; border-radius:1px; }
 
-/* Keyboard */
-.kb-row { display:flex; gap:4px; justify-content:center; margin:3px 0; }
+/* AI Thinking box */
+.think-box { background:#0a1020; border:1px solid #1e3a5a; border-left:4px solid #47c8ff;
+             border-radius:0 6px 6px 0; padding:14px 18px; margin:8px 0; }
+.think-title { font-size:0.6rem; letter-spacing:0.2em; color:#47c8ff; text-transform:uppercase; margin-bottom:6px; }
+.think-text  { font-family:'JetBrains Mono',monospace; font-size:0.78rem; color:#c8d8f0; line-height:1.7; }
 
-/* Bayesian panel */
+/* Prob bars */
 .bayes-panel { background:#0f0f1a; border:1px solid #1e1e2e; border-radius:6px; padding:14px; margin:8px 0; }
-.bayes-title { font-size:0.62rem; letter-spacing:0.2em; text-transform:uppercase; color:#47c8ff; margin-bottom:10px; }
-.prob-row { display:flex; align-items:center; gap:8px; margin:4px 0; }
-.prob-letter { font-family:'Bebas Neue',sans-serif; font-size:1.1rem; color:#e8e8f0; width:18px; }
-.prob-bar-wrap { flex:1; background:#1a1a2e; border-radius:2px; height:8px; overflow:hidden; }
-.prob-bar { height:8px; border-radius:2px; transition:width .4s ease; }
-.prob-val { font-size:0.62rem; color:#6b6b80; width:38px; text-align:right; }
+.bayes-title { font-size:0.6rem; letter-spacing:0.2em; text-transform:uppercase; color:#c084fc; margin-bottom:10px; }
+.prob-row { display:flex; align-items:center; gap:8px; margin:5px 0; }
+.prob-letter { font-family:'Bebas Neue',sans-serif; font-size:1.1rem; width:20px; }
+.prob-bar-bg { flex:1; background:#1a1a2e; border-radius:2px; height:10px; overflow:hidden; }
+.prob-bar    { height:10px; border-radius:2px; transition:width .5s ease; }
+.prob-val    { font-size:0.62rem; color:#6b6b80; width:42px; text-align:right; }
 
-/* Log panel */
-.log-panel { background:#080810; border:1px solid #1e1e2e; border-radius:6px; padding:14px;
-             font-family:'JetBrains Mono',monospace; font-size:0.72rem; max-height:320px; overflow-y:auto; }
-.log-entry { padding:3px 0; border-bottom:1px solid #0f0f1a; line-height:1.5; }
+/* Log */
+.log-panel { background:#060610; border:1px solid #1e1e2e; border-radius:6px; padding:14px;
+             font-family:'JetBrains Mono',monospace; font-size:0.7rem; max-height:350px; overflow-y:auto; }
+.log-entry { padding:4px 0; border-bottom:1px solid #0f0f1a; line-height:1.5; }
 .log-time  { color:#3a3a5a; margin-right:8px; }
-.log-info  { color:#47c8ff; }
-.log-good  { color:#47ff8a; }
-.log-bad   { color:#ff4757; }
-.log-warn  { color:#e8ff47; }
-.log-math  { color:#c084fc; }
-
-/* Hint box */
-.hint-box { background:#0f0f1a; border-left:3px solid #47c8ff; padding:12px 16px;
-            font-style:italic; color:#c8c8e0; font-size:0.82rem; line-height:1.7; margin:6px 0; border-radius:0 4px 4px 0; }
-
-/* Game over */
-.win-box  { background:#0a1f14; border:2px solid #47ff8a; border-radius:6px; padding:24px; text-align:center; }
-.lose-box { background:#1a0508; border:2px solid #ff4757; border-radius:6px; padding:24px; text-align:center; }
-.result-text { font-family:'Bebas Neue',sans-serif; font-size:3.5rem; letter-spacing:0.1em; line-height:1; }
-.fact-box { background:#0f0f1a; border:1px solid #1e1e2e; border-radius:4px; padding:14px 18px;
-            font-style:italic; color:#6b6b80; font-size:0.8rem; line-height:1.7; text-align:center; margin:10px 0; }
+.c-info { color:#47c8ff; } .c-good { color:#47ff8a; } .c-bad { color:#ff4757; }
+.c-warn { color:#e8ff47; } .c-math { color:#c084fc; } .c-ai { color:#ff9f43; }
 
 /* Gallows */
 .gallows-wrap { background:#0f0f1a; border:1px solid #1e1e2e; border-radius:6px; padding:16px; text-align:center; }
 
-@keyframes popIn { from{transform:scale(.5);opacity:0} to{transform:scale(1);opacity:1} }
+/* Score */
+.score-box { background:#0f0f1a; border:1px solid #1e1e2e; border-radius:6px; padding:14px; text-align:center; margin:6px 0; }
+.score-num { font-family:'Bebas Neue',sans-serif; font-size:2.8rem; line-height:1; }
 
-/* Button overrides */
+/* Position grid */
+.pos-grid { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; padding:10px; background:#0f0f1a; border:1px solid #1e1e2e; border-radius:6px; margin:8px 0; }
+.pos-cell { width:38px; height:38px; border:1px solid #2a2a3a; border-radius:3px; display:flex; align-items:center; justify-content:center;
+            font-family:'Bebas Neue',sans-serif; font-size:1.2rem; cursor:pointer; transition:all .15s; }
+.pos-cell.selected { background:#1a3a1a; border-color:#47ff8a; color:#47ff8a; }
+.pos-cell.unselected { color:#4a4a6a; }
+
+/* Win/Lose */
+.win-box  { background:#0a1f14; border:2px solid #47ff8a; border-radius:6px; padding:24px; text-align:center; margin:10px 0; }
+.lose-box { background:#1a0508; border:2px solid #ff4757; border-radius:6px; padding:24px; text-align:center; margin:10px 0; }
+.result-big { font-family:'Bebas Neue',sans-serif; font-size:3rem; letter-spacing:0.1em; line-height:1.1; }
+
+/* Setup screen */
+.setup-box { background:#0f0f1a; border:1px solid #1e1e2e; border-radius:8px; padding:24px; margin:10px 0; }
+
 .stButton > button {
-    font-family:'Space Mono',monospace !important; font-size:0.68rem !important;
-    font-weight:700 !important; letter-spacing:0.08em !important; text-transform:uppercase !important;
-    border-radius:3px !important; transition:all .15s ease !important;
+    font-family:'Space Mono',monospace !important; font-size:0.68rem !important; font-weight:700 !important;
+    letter-spacing:0.08em !important; text-transform:uppercase !important; border-radius:3px !important;
     background:#0f0f1a !important; border:1px solid #2a2a3a !important; color:#e8e8f0 !important;
-    padding:6px 4px !important;
+    padding:8px 10px !important; transition:all .15s !important;
 }
-.stButton > button:hover { background:#e8ff47 !important; color:#0a0a0f !important; border-color:#e8ff47 !important; transform:translateY(-1px) !important; }
-.stButton > button:disabled { opacity:0.2 !important; transform:none !important; }
+.stButton > button:hover:not(:disabled) { background:#e8ff47 !important; color:#0a0a0f !important; border-color:#e8ff47 !important; }
+.stButton > button:disabled { opacity:0.2 !important; }
 </style>
 """, unsafe_allow_html=True)
 
 # ── Word bank ─────────────────────────────────────────────────────────────────
 WORD_BANK = {
-    "animals":    ["elephant","giraffe","penguin","dolphin","crocodile","chameleon","platypus","armadillo","rhinoceros","hippopotamus"],
-    "countries":  ["australia","zimbabwe","portugal","bangladesh","switzerland","mozambique","kazakhstan","india","azerbaijan","liechtenstein"],
-    "science":    ["photosynthesis","mitochondria","chromosome","electrolysis","thermodynamics","hypothesis","ecosystem","gravitational","bioluminescence","electromagnetic"],
-    "food":       ["biryani","noodles","friedrice","croissant","momos","gulabjamun","butternaan","jalebi","ratatouille","spaghetti"],
-    "technology": ["algorithm","blockchain","encryption","kubernetes","javascript","cybersecurity","bandwidth","semiconductor","repository","virtualization"]
+    "animals":    ["elephant","giraffe","penguin","dolphin","crocodile","chameleon","platypus","armadillo","rhinoceros","hippopotamus","cheetah","flamingo","mongoose","porcupine","salamander"],
+    "countries":  ["australia","zimbabwe","portugal","bangladesh","switzerland","mozambique","kazakhstan","india","azerbaijan","liechtenstein","argentina","cambodia","ethiopia","guatemala","indonesia"],
+    "science":    ["photosynthesis","mitochondria","chromosome","electrolysis","thermodynamics","hypothesis","ecosystem","gravitational","bioluminescence","electromagnetic","catalysis","osmosis","neuroscience","radioactive","atmosphere"],
+    "food":       ["biryani","noodles","croissant","momos","gulabjamun","jalebi","ratatouille","spaghetti","quesadilla","bruschetta","dumplings","enchilada","risotto","tiramisu","gazpacho"],
+    "technology": ["algorithm","blockchain","encryption","kubernetes","javascript","cybersecurity","bandwidth","semiconductor","repository","virtualization","recursion","microprocessor","hyperparameter","defragmentation","authentication"]
 }
 ALL_WORDS = [w for words in WORD_BANK.values() for w in words]
 MAX_WRONG = 6
 MODEL = "llama-3.3-70b-versatile"
 
-# ── English letter frequency prior (Bayesian prior P(letter)) ─────────────────
+# ── English letter frequency prior ───────────────────────────────────────────
 LETTER_FREQ = {
     'e':12.7,'t':9.1,'a':8.2,'o':7.5,'i':7.0,'n':6.7,'s':6.3,'h':6.1,
     'r':6.0,'d':4.3,'l':4.0,'c':2.8,'u':2.8,'m':2.4,'w':2.4,'f':2.2,
@@ -121,68 +117,60 @@ LETTER_FREQ = {
 }
 
 # ── Bayesian Engine ───────────────────────────────────────────────────────────
-def get_possible_words(word, guessed):
-    """Return all words consistent with current revealed pattern."""
-    target_len = len(word)
-    revealed = {i: ch for i, ch in enumerate(word) if ch in guessed}
-    wrong = [ch for ch in guessed if ch not in word]
+def get_possible_words(length, correct_positions, wrong_letters, correct_letters):
+    """Filter word pool based on all constraints."""
     possible = []
     for w in ALL_WORDS:
-        if len(w) != target_len:
+        if len(w) != length:
             continue
-        if any(ch in w for ch in wrong):
+        if any(ch in w for ch in wrong_letters):
             continue
-        if any(w[i] != ch for i, ch in revealed.items()):
+        match = True
+        for i, ch in correct_positions.items():
+            if i >= len(w) or w[i] != ch:
+                match = False
+                break
+        if not match:
+            continue
+        if any(ch not in w for ch in correct_letters):
             continue
         possible.append(w)
-    return possible if possible else ALL_WORDS
+    return possible if possible else []
 
-def bayesian_letter_probabilities(word, guessed):
-    """
-    Bayesian update:
-    P(letter | evidence) ∝ P(evidence | letter) × P(letter)
-    Evidence = current pattern of revealed/hidden letters
-    Returns dict of letter -> probability (only unguessed letters)
-    """
-    possible_words = get_possible_words(word, guessed)
-    unguessed = [ch for ch in 'abcdefghijklmnopqrstuvwxyz' if ch not in guessed]
+def bayesian_probabilities(length, correct_positions, wrong_letters, correct_letters, guessed_letters):
+    possible = get_possible_words(length, correct_positions, wrong_letters, correct_letters)
+    unguessed = [ch for ch in 'abcdefghijklmnopqrstuvwxyz' if ch not in guessed_letters]
 
     letter_counts = defaultdict(int)
-    for w in possible_words:
+    for w in possible:
         for ch in set(w):
             if ch in unguessed:
                 letter_counts[ch] += 1
 
-    total_words = len(possible_words)
-    raw_probs = {}
+    total = len(possible)
+    raw = {}
     for ch in unguessed:
-        likelihood = letter_counts[ch] / total_words if total_words > 0 else 0
+        likelihood = letter_counts[ch] / total if total > 0 else 0
         prior = LETTER_FREQ.get(ch, 0.1) / 100
-        raw_probs[ch] = likelihood * prior
+        raw[ch] = likelihood * prior
 
-    total = sum(raw_probs.values()) or 1
-    return {ch: v / total for ch, v in raw_probs.items()}, possible_words, letter_counts, total_words
+    s = sum(raw.values()) or 1
+    probs = {ch: v/s for ch, v in raw.items()}
+    return probs, possible, letter_counts, total
 
-def get_best_suggestion(word, guessed):
-    probs, _, _, _ = bayesian_letter_probabilities(word, guessed)
-    if not probs:
-        return None
-    return max(probs, key=probs.get)
-
-# ── Bayesian Log ──────────────────────────────────────────────────────────────
+# ── Logging ───────────────────────────────────────────────────────────────────
 def add_log(msg, level="info"):
     if "logs" not in st.session_state:
         st.session_state.logs = []
-    icons = {"info":"ℹ️","good":"✅","bad":"❌","warn":"⚠️","math":"∑"}
-    css   = {"info":"log-info","good":"log-good","bad":"log-bad","warn":"log-warn","math":"log-math"}
+    css_map = {"info":"c-info","good":"c-good","bad":"c-bad","warn":"c-warn","math":"c-math","ai":"c-ai"}
+    icon_map = {"info":"ℹ","good":"✓","bad":"✗","warn":"▲","math":"∑","ai":"🤖"}
     st.session_state.logs.append({
-        "msg": msg, "level": level,
-        "icon": icons.get(level,"ℹ️"),
-        "css": css.get(level,"log-info"),
-        "turn": st.session_state.get("turn", 0)
+        "msg": msg, "css": css_map.get(level,"c-info"),
+        "icon": icon_map.get(level,"ℹ"),
+        "turn": st.session_state.get("turn",0)
     })
 
-# ── Groq AI ───────────────────────────────────────────────────────────────────
+# ── Groq AI reasoning ────────────────────────────────────────────────────────
 @st.cache_resource
 def get_groq_client():
     try:
@@ -191,128 +179,96 @@ def get_groq_client():
         api_key = os.environ.get("GROQ_API_KEY","")
     return Groq(api_key=api_key)
 
-def get_ai_hint(hint_number):
-    client = get_groq_client()
-    word, category = st.session_state.word, st.session_state.category
-    guessed, wrong = list(st.session_state.guessed), st.session_state.wrong
-    revealed = " ".join([ch if ch in st.session_state.guessed else "_" for ch in word])
-    hint_levels = {
-        1: "Give a vague, creative, poetic clue. Do NOT mention the word or its letters.",
-        2: "Give a more specific clue — category, key property, or interesting fact. Don't reveal the word.",
-        3: f"Give a strong structural hint using confirmed letters ({', '.join(guessed) or 'none'}). Don't say the word."
-    }
-    prompt = f"""Hangman hint-giver. Word:"{word}", Category:{category}, Pattern:"{revealed}", Hint level:{hint_number}/3.
-Instructions: {hint_levels[hint_number]}
-Respond with ONLY 1-2 sentences. No preamble."""
-    try:
-        r = get_groq_client().chat.completions.create(model=MODEL, max_tokens=120,
-            messages=[{"role":"user","content":prompt}])
-        return r.choices[0].message.content.strip()
-    except Exception as e:
-        return f"Hint unavailable: {e}"
+def ai_reasoning(letter, prob, possible_count, wrong_letters, correct_positions, pattern):
+    prompt = f"""You are an AI playing Hangman using Bayesian strategy (BAD402 AI course).
+You just decided to guess the letter '{letter.upper()}'.
+- Bayesian probability for this letter: {prob*100:.1f}%
+- Possible words remaining: {possible_count}
+- Wrong guesses so far: {', '.join(wrong_letters) if wrong_letters else 'none'}
+- Current pattern: {pattern}
 
-def get_fun_fact(word, category, won):
-    outcome = "won and guessed" if won else "lost on"
-    prompt = f'Player just {outcome} "{word}" (category:{category}) in Hangman. One fun surprising fact about "{word}". No "Did you know" opener. Be brief.'
+In 2 sentences max, explain your Bayesian reasoning for choosing '{letter.upper()}'. 
+Mention probability, prior (letter frequency), and likelihood (word corpus). Be concise and technical."""
     try:
-        r = get_groq_client().chat.completions.create(model=MODEL, max_tokens=80,
-            messages=[{"role":"user","content":prompt}])
+        r = get_groq_client().chat.completions.create(
+            model=MODEL, max_tokens=100,
+            messages=[{"role":"user","content":prompt}]
+        )
         return r.choices[0].message.content.strip()
     except:
-        return ""
+        return f"Chose '{letter.upper()}' with {prob*100:.1f}% posterior probability based on Bayesian update."
 
-# ── Game init ─────────────────────────────────────────────────────────────────
-def init_game():
-    category = random.choice(list(WORD_BANK.keys()))
-    word = random.choice(WORD_BANK[category])
-    st.session_state.update({
-        "word": word, "category": category,
-        "guessed": set(), "wrong": [],
-        "hint_count": 0, "hints": [],
-        "game_over": False, "won": False,
-        "fun_fact": "", "logs": [], "turn": 0,
-        "bayes_probs": {}, "possible_count": len(ALL_WORDS),
-        "suggestion": None
-    })
-    add_log(f"New game started — Category: {category.upper()}", "info")
-    add_log(f"Word has {len(word)} letters", "info")
-    add_log(f"Prior: Using English letter frequency as Bayesian prior P(letter)", "math")
-    add_log(f"Possible word pool initialised — {len(ALL_WORDS)} candidates", "math")
-    _run_bayes()
+def ai_win_message(word, guesses_taken):
+    prompt = f"""You are an AI that just won Hangman by guessing the word "{word}" in {guesses_taken} wrong guesses.
+Write one triumphant sentence about your Bayesian strategy success. Be brief and fun."""
+    try:
+        r = get_groq_client().chat.completions.create(
+            model=MODEL, max_tokens=60,
+            messages=[{"role":"user","content":prompt}]
+        )
+        return r.choices[0].message.content.strip()
+    except:
+        return f"Bayesian strategy succeeded! Cracked '{word.upper()}' with {guesses_taken} wrong guesses."
 
-def _run_bayes():
-    word = st.session_state.word
-    guessed = st.session_state.guessed
-    probs, possible, letter_counts, total = bayesian_letter_probabilities(word, guessed)
-    st.session_state.bayes_probs = probs
-    st.session_state.possible_count = total
-    best = max(probs, key=probs.get) if probs else None
-    st.session_state.suggestion = best
-    return probs, possible, letter_counts, total
-
-def check_game():
-    word = st.session_state.word
-    if all(ch in st.session_state.guessed for ch in word):
-        st.session_state.game_over = True
-        st.session_state.won = True
-        st.session_state.fun_fact = get_fun_fact(word, st.session_state.category, True)
-        add_log("🎉 Player guessed the word correctly!", "good")
-    elif len(st.session_state.wrong) >= MAX_WRONG:
-        st.session_state.game_over = True
-        st.session_state.won = False
-        st.session_state.fun_fact = get_fun_fact(word, st.session_state.category, False)
-        add_log(f"💀 Game over. The word was: {word.upper()}", "bad")
+def ai_lose_message(word):
+    prompt = f"""You are an AI that just lost Hangman. The word was "{word}" and you couldn't guess it in 6 tries.
+Write one humble sentence admitting defeat and mentioning what went wrong statistically. Be brief."""
+    try:
+        r = get_groq_client().chat.completions.create(
+            model=MODEL, max_tokens=60,
+            messages=[{"role":"user","content":prompt}]
+        )
+        return r.choices[0].message.content.strip()
+    except:
+        return f"The word '{word.upper()}' defeated my Bayesian model this time!"
 
 # ── Hangman SVG ───────────────────────────────────────────────────────────────
 def hangman_svg(n):
     parts = [
-        '<circle cx="140" cy="65" r="18" stroke="#ff4757" stroke-width="3" fill="none"/>',
-        '<line x1="140" y1="83" x2="140" y2="145" stroke="#ff4757" stroke-width="3" stroke-linecap="round"/>',
-        '<line x1="140" y1="100" x2="112" y2="125" stroke="#ff4757" stroke-width="3" stroke-linecap="round"/>',
-        '<line x1="140" y1="100" x2="168" y2="125" stroke="#ff4757" stroke-width="3" stroke-linecap="round"/>',
-        '<line x1="140" y1="145" x2="112" y2="178" stroke="#ff4757" stroke-width="3" stroke-linecap="round"/>',
-        '<line x1="140" y1="145" x2="168" y2="178" stroke="#ff4757" stroke-width="3" stroke-linecap="round"/>',
+        '<circle cx="140" cy="62" r="16" stroke="#ff4757" stroke-width="3" fill="none"/>',
+        '<line x1="140" y1="78" x2="140" y2="138" stroke="#ff4757" stroke-width="3" stroke-linecap="round"/>',
+        '<line x1="140" y1="98" x2="114" y2="122" stroke="#ff4757" stroke-width="3" stroke-linecap="round"/>',
+        '<line x1="140" y1="98" x2="166" y2="122" stroke="#ff4757" stroke-width="3" stroke-linecap="round"/>',
+        '<line x1="140" y1="138" x2="114" y2="170" stroke="#ff4757" stroke-width="3" stroke-linecap="round"/>',
+        '<line x1="140" y1="138" x2="166" y2="170" stroke="#ff4757" stroke-width="3" stroke-linecap="round"/>',
     ]
-    scaffold = '''
-        <line x1="30" y1="220" x2="200" y2="220" stroke="#2a2a3a" stroke-width="4" stroke-linecap="round"/>
-        <line x1="70" y1="220" x2="70" y2="20" stroke="#2a2a3a" stroke-width="4" stroke-linecap="round"/>
-        <line x1="70" y1="20" x2="140" y2="20" stroke="#2a2a3a" stroke-width="4" stroke-linecap="round"/>
-        <line x1="140" y1="20" x2="140" y2="47" stroke="#2a2a3a" stroke-width="4" stroke-linecap="round"/>
-    '''
-    body = "".join(parts[:n])
-    return f'<svg viewBox="0 0 230 240" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:200px">{scaffold}{body}</svg>'
+    scaffold = '''<line x1="30" y1="210" x2="190" y2="210" stroke="#2a2a3a" stroke-width="4" stroke-linecap="round"/>
+        <line x1="68" y1="210" x2="68" y2="18" stroke="#2a2a3a" stroke-width="4" stroke-linecap="round"/>
+        <line x1="68" y1="18" x2="140" y2="18" stroke="#2a2a3a" stroke-width="4" stroke-linecap="round"/>
+        <line x1="140" y1="18" x2="140" y2="46" stroke="#2a2a3a" stroke-width="4" stroke-linecap="round"/>'''
+    return f'<svg viewBox="0 0 220 225" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:190px">{"".join([scaffold]+parts[:n])}</svg>'
 
-# ── Word HTML ─────────────────────────────────────────────────────────────────
-def word_html():
-    word, guessed = st.session_state.word, st.session_state.guessed
-    game_over, won = st.session_state.game_over, st.session_state.won
+# ── Word display ──────────────────────────────────────────────────────────────
+def word_html(length, correct_positions):
     html = '<div class="word-wrap">'
-    for ch in word:
-        if ch in guessed:
-            cls = "found"
-        elif game_over and not won:
-            cls = "reveal"
+    for i in range(length):
+        ch = correct_positions.get(i, None)
+        if ch:
+            html += f'<div class="lslot"><div class="lchar found">{ch.upper()}</div><div class="lline"></div></div>'
         else:
-            cls = "blank"
-        disp = ch.upper() if (ch in guessed or (game_over and not won)) else "_"
-        html += f'<div class="lslot"><div class="lchar {cls}">{disp}</div><div class="lline"></div></div>'
+            html += f'<div class="lslot"><div class="lchar blank">_</div><div class="lline"></div></div>'
     html += '</div>'
     return html
 
-# ── Probability bar HTML ──────────────────────────────────────────────────────
-def prob_bars_html(probs, top_n=8):
+def pattern_str(length, correct_positions):
+    return " ".join([correct_positions.get(i,"_") for i in range(length)])
+
+# ── Probability bars ──────────────────────────────────────────────────────────
+def prob_bars_html(probs, top_n=10):
     if not probs:
-        return "<p style='color:#3a3a5a;font-size:0.75rem'>No data yet</p>"
+        return "<p style='color:#3a3a5a;font-size:0.75rem;padding:10px'>Waiting for first guess...</p>"
     top = sorted(probs.items(), key=lambda x: -x[1])[:top_n]
-    max_p = top[0][1] if top else 1
-    html = '<div class="bayes-panel"><div class="bayes-title">📊 Bayesian Letter Probabilities — Top 8</div>'
+    mx = top[0][1] if top else 1
+    html = '<div class="bayes-panel"><div class="bayes-title">∑ Posterior Probabilities P(L|Evidence)</div>'
     for letter, prob in top:
-        pct = (prob / max_p) * 100
+        pct = (prob/mx)*100
         val = f"{prob*100:.1f}%"
-        color = "#47ff8a" if pct > 70 else "#47c8ff" if pct > 35 else "#e8ff47"
+        color = "#47ff8a" if pct>70 else "#47c8ff" if pct>40 else "#e8ff47" if pct>20 else "#ff9f43"
+        is_best = letter == top[0][0]
+        style = "font-weight:bold;" if is_best else ""
         html += f'''<div class="prob-row">
-            <div class="prob-letter">{letter.upper()}</div>
-            <div class="prob-bar-wrap"><div class="prob-bar" style="width:{pct:.1f}%;background:{color}"></div></div>
+            <div class="prob-letter" style="color:{color};{style}">{letter.upper()}</div>
+            <div class="prob-bar-bg"><div class="prob-bar" style="width:{pct:.1f}%;background:{color}"></div></div>
             <div class="prob-val">{val}</div>
         </div>'''
     html += '</div>'
@@ -320,147 +276,337 @@ def prob_bars_html(probs, top_n=8):
 
 # ── Log HTML ──────────────────────────────────────────────────────────────────
 def log_html():
-    logs = st.session_state.get("logs", [])
+    logs = st.session_state.get("logs",[])
     if not logs:
-        return '<div class="log-panel"><span style="color:#3a3a5a">No logs yet...</span></div>'
+        return '<div class="log-panel"><span style="color:#3a3a5a">Waiting for game to start...</span></div>'
     html = '<div class="log-panel">'
-    for i, entry in enumerate(reversed(logs[-40:])):
+    for entry in reversed(logs[-50:]):
         html += f'<div class="log-entry"><span class="log-time">[T{entry["turn"]:02d}]</span><span class="{entry["css"]}">{entry["icon"]} {entry["msg"]}</span></div>'
     html += '</div>'
     return html
 
-# ── Init ──────────────────────────────────────────────────────────────────────
-if "word" not in st.session_state:
-    init_game()
+# ── Init / Reset ──────────────────────────────────────────────────────────────
+def init_setup():
+    st.session_state.update({
+        "phase": "setup",          # setup → playing → result
+        "secret_word": "",
+        "word_length": 0,
+        "correct_positions": {},   # {index: letter}
+        "correct_letters": set(),  # letters confirmed in word
+        "wrong_letters": [],
+        "guessed_letters": set(),
+        "turn": 0,
+        "logs": [],
+        "probs": {},
+        "possible_count": len(ALL_WORDS),
+        "current_guess": None,
+        "ai_reasoning_text": "",
+        "game_result": None,       # "ai_win" | "ai_lose" | "human_win"
+        "result_message": "",
+        "score_ai": st.session_state.get("score_ai", 0),
+        "score_you": st.session_state.get("score_you", 0),
+        "total_games": st.session_state.get("total_games", 0),
+        "waiting_response": False,
+    })
 
+def start_playing(word_length):
+    st.session_state.phase = "playing"
+    st.session_state.word_length = word_length
+    add_log(f"Game started! Secret word has {word_length} letters", "info")
+    add_log(f"Prior: English letter frequency distribution loaded", "math")
+    add_log(f"Word corpus: {len(ALL_WORDS)} candidate words available", "math")
+    add_log(f"Bayesian model initialised. AI begins guessing...", "ai")
+    run_bayes_and_guess()
+
+def run_bayes_and_guess():
+    length = st.session_state.word_length
+    cp = st.session_state.correct_positions
+    wl = st.session_state.wrong_letters
+    cl = st.session_state.correct_letters
+    gl = st.session_state.guessed_letters
+
+    probs, possible, letter_counts, total = bayesian_probabilities(length, cp, wl, cl, gl)
+    st.session_state.probs = probs
+    st.session_state.possible_count = total
+
+    if not probs:
+        st.session_state.current_guess = None
+        return
+
+    best = max(probs, key=probs.get)
+    best_prob = probs[best]
+    st.session_state.current_guess = best
+
+    pat = pattern_str(length, cp)
+    add_log(f"Bayesian update complete — {total} possible words remain", "math")
+    add_log(f"Top candidate: '{best.upper()}' with P={best_prob*100:.1f}%", "math")
+
+    # Get AI reasoning from Groq
+    reasoning = ai_reasoning(best, best_prob, total, wl, cp, pat)
+    st.session_state.ai_reasoning_text = reasoning
+    add_log(f"AI: {reasoning}", "ai")
+
+    st.session_state.turn += 1
+    st.session_state.guessed_letters.add(best)
+    st.session_state.waiting_response = True
+
+def process_response(is_correct, positions_with_letter=None):
+    letter = st.session_state.current_guess
+    if is_correct and positions_with_letter:
+        for pos in positions_with_letter:
+            st.session_state.correct_positions[pos] = letter
+        st.session_state.correct_letters.add(letter)
+        add_log(f"Response: '{letter.upper()}' is CORRECT at positions {[p+1 for p in positions_with_letter]}", "good")
+
+        # Check win
+        if len(st.session_state.correct_positions) == st.session_state.word_length:
+            word = "".join(st.session_state.correct_positions.get(i,"_") for i in range(st.session_state.word_length))
+            add_log(f"🎉 AI guessed the word: {word.upper()}!", "good")
+            msg = ai_win_message(word, len(st.session_state.wrong_letters))
+            st.session_state.result_message = msg
+            st.session_state.game_result = "ai_win"
+            st.session_state.score_ai += 1
+            st.session_state.total_games += 1
+            st.session_state.phase = "result"
+        else:
+            st.session_state.waiting_response = False
+            run_bayes_and_guess()
+    else:
+        st.session_state.wrong_letters.append(letter)
+        add_log(f"Response: '{letter.upper()}' is WRONG — not in word", "bad")
+        add_log(f"Eliminating all words containing '{letter.upper()}' from pool", "math")
+
+        if len(st.session_state.wrong_letters) >= MAX_WRONG:
+            add_log("AI has used all 6 guesses. YOU WIN! 🎉", "warn")
+            msg = ai_lose_message(st.session_state.secret_word or "unknown")
+            st.session_state.result_message = msg
+            st.session_state.game_result = "human_win"
+            st.session_state.score_you += 1
+            st.session_state.total_games += 1
+            st.session_state.phase = "result"
+        else:
+            st.session_state.waiting_response = False
+            run_bayes_and_guess()
+
+# ── Init session ──────────────────────────────────────────────────────────────
+if "phase" not in st.session_state:
+    st.session_state.score_ai = 0
+    st.session_state.score_you = 0
+    st.session_state.total_games = 0
+    init_setup()
+
+# ══════════════════════════════════════════════════════════════════════════════
 # ── HEADER ────────────────────────────────────────────────────────────────────
-c1, c2, c3 = st.columns([2, 1, 1])
+c1, c2, c3, c4 = st.columns([2.5, 1, 1, 1])
 with c1:
-    st.markdown("<div class='subtitle'>VTU BAD402 — Artificial Intelligence</div>", unsafe_allow_html=True)
-    st.markdown("<h1>HANG<span style='color:#f0f0f0'>MAN</span></h1>", unsafe_allow_html=True)
+    st.markdown("<div class='subtitle'>VTU BAD402 — Artificial Intelligence | Bayesian Strategy</div>", unsafe_allow_html=True)
+    st.markdown("<h1>AI HANGMAN</h1>", unsafe_allow_html=True)
 with c2:
     st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown(f"<span class='badge'>📂 {st.session_state.category.upper()}</span>", unsafe_allow_html=True)
+    st.markdown(f"<div class='score-box'><div style='font-size:0.55rem;letter-spacing:0.2em;color:#ff4757;text-transform:uppercase'>🤖 AI Score</div><div class='score-num' style='color:#ff4757'>{st.session_state.score_ai}</div></div>", unsafe_allow_html=True)
 with c3:
     st.markdown("<br>", unsafe_allow_html=True)
-    wrong = len(st.session_state.wrong)
-    color = "green" if wrong < 3 else "warn" if wrong < 5 else "red"
-    st.markdown(f"<span class='badge badge-{color}'>WRONG: {wrong}/{MAX_WRONG}</span>", unsafe_allow_html=True)
+    st.markdown(f"<div class='score-box'><div style='font-size:0.55rem;letter-spacing:0.2em;color:#47ff8a;text-transform:uppercase'>👤 Your Score</div><div class='score-num' style='color:#47ff8a'>{st.session_state.score_you}</div></div>", unsafe_allow_html=True)
+with c4:
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown(f"<div class='score-box'><div style='font-size:0.55rem;letter-spacing:0.2em;color:#6b6b80;text-transform:uppercase'>Games</div><div class='score-num' style='color:#6b6b80'>{st.session_state.total_games}</div></div>", unsafe_allow_html=True)
 
 st.markdown("<hr>", unsafe_allow_html=True)
 
-# ── MAIN LAYOUT ───────────────────────────────────────────────────────────────
-left_col, mid_col, right_col = st.columns([1, 1.4, 1.2])
+# ══════════════════════════════════════════════════════════════════════════════
+# PHASE: SETUP
+# ══════════════════════════════════════════════════════════════════════════════
+if st.session_state.phase == "setup":
+    lc, rc = st.columns([1.2, 1])
+    with lc:
+        st.markdown("### 🧠 HOW TO PLAY")
+        st.markdown("""<div class='setup-box'>
+        <p style='color:#47c8ff;font-size:0.8rem;line-height:1.9'>
+        <b style='color:#e8ff47'>You</b> are the Word Setter.<br>
+        <b style='color:#ff4757'>AI</b> is the Guesser using Bayesian strategy.<br><br>
+        <b>Step 1</b> — Think of a secret word and enter its length below<br>
+        <b>Step 2</b> — AI guesses letters one by one<br>
+        <b>Step 3</b> — You respond ✅ YES or ❌ NO<br>
+        <b>Step 4</b> — If YES, mark which positions the letter appears<br>
+        <b>Step 5</b> — AI wins in ≤6 wrong guesses, You win if AI fails!<br><br>
+        <span style='color:#c084fc'>Watch the Bayesian probabilities update live after every guess!</span>
+        </p></div>""", unsafe_allow_html=True)
 
-# ── LEFT: Gallows + Wrong letters ────────────────────────────────────────────
-with left_col:
-    st.markdown("<div class='gallows-wrap'>" + hangman_svg(len(st.session_state.wrong)) + "</div>", unsafe_allow_html=True)
+        st.markdown("### OR — Let the game pick a word")
+        cat = st.selectbox("Pick a category (AI won't know which word):", ["— I'll think of my own —"] + list(WORD_BANK.keys()))
+        if cat != "— I'll think of my own —":
+            if st.button("🎲 Random Word from Category", key="rand_word"):
+                word = random.choice(WORD_BANK[cat])
+                st.session_state.secret_word = word
+                start_playing(len(word))
+                st.rerun()
 
-    if st.session_state.wrong:
-        wrong_str = "  ".join(l.upper() for l in st.session_state.wrong)
-        st.markdown(f"<div style='background:#1a0508;border:1px solid #ff4757;border-radius:4px;padding:8px 12px;color:#ff4757;font-size:0.8rem;margin-top:8px;letter-spacing:0.15em'>✗  {wrong_str}</div>", unsafe_allow_html=True)
+    with rc:
+        st.markdown("### 📝 ENTER YOUR WORD LENGTH")
+        st.markdown("<div class='setup-box'>", unsafe_allow_html=True)
+        word_input = st.text_input("Type your secret word here (only you can see it):", type="password", key="word_input_field")
+        if word_input:
+            word_input = word_input.lower().strip()
+            if word_input.isalpha() and len(word_input) >= 3:
+                st.markdown(f"<span class='badge badge-green'>✓ Word accepted — {len(word_input)} letters</span>", unsafe_allow_html=True)
+                if st.button("🚀 START — Let AI Guess!", key="start_btn"):
+                    st.session_state.secret_word = word_input
+                    start_playing(len(word_input))
+                    st.rerun()
+            else:
+                st.markdown("<span class='badge badge-red'>⚠ Min 3 letters, alphabets only</span>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    # Bayesian suggestion
-    if st.session_state.suggestion and not st.session_state.game_over:
-        st.markdown(f"""<div style='background:#0a1f14;border:1px solid #47ff8a;border-radius:4px;padding:10px 12px;margin-top:8px'>
-            <div style='font-size:0.6rem;letter-spacing:0.2em;color:#47ff8a;text-transform:uppercase'>🧠 Bayesian Best Guess</div>
-            <div style='font-family:Bebas Neue,sans-serif;font-size:2rem;color:#47ff8a'>{st.session_state.suggestion.upper()}</div>
-            <div style='font-size:0.62rem;color:#3a6a4a'>Most probable next letter</div>
+        st.markdown("### 🎓 BAD402 Strategy Used")
+        st.markdown("""<div style='background:#0f0f1a;border:1px solid #2a1a4a;border-radius:4px;padding:14px;font-family:JetBrains Mono,monospace;font-size:0.72rem;color:#c084fc;line-height:1.9'>
+            P(L | E) ∝ P(E | L) × P(L)<br>
+            <span style='color:#6b6b80'>L = Letter being considered</span><br>
+            <span style='color:#6b6b80'>E = Revealed pattern evidence</span><br>
+            <span style='color:#6b6b80'>P(L) = English letter frequency prior</span><br>
+            <span style='color:#6b6b80'>P(E|L) = Likelihood from word corpus</span>
         </div>""", unsafe_allow_html=True)
 
-    st.markdown(f"""<div style='background:#0f0f1a;border:1px solid #1e1e2e;border-radius:4px;padding:10px 12px;margin-top:8px'>
-        <div style='font-size:0.6rem;letter-spacing:0.2em;color:#6b6b80;text-transform:uppercase'>Possible Words Remaining</div>
-        <div style='font-family:Bebas Neue,sans-serif;font-size:1.8rem;color:#47c8ff'>{st.session_state.possible_count}</div>
-    </div>""", unsafe_allow_html=True)
+# ══════════════════════════════════════════════════════════════════════════════
+# PHASE: PLAYING
+# ══════════════════════════════════════════════════════════════════════════════
+elif st.session_state.phase == "playing":
+    left, mid, right = st.columns([1, 1.5, 1.2])
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("↺ New Game", key="new_game"):
-        init_game()
-        st.rerun()
+    with left:
+        # Gallows
+        st.markdown("<div class='gallows-wrap'>" + hangman_svg(len(st.session_state.wrong_letters)) + "</div>", unsafe_allow_html=True)
+        wrong_count = len(st.session_state.wrong_letters)
+        color = "green" if wrong_count < 2 else "yellow" if wrong_count < 4 else "red"
+        st.markdown(f"<div style='text-align:center;margin-top:6px'><span class='badge badge-{color}'>WRONG: {wrong_count}/{MAX_WRONG}</span></div>", unsafe_allow_html=True)
 
-# ── MIDDLE: Word + Keyboard + Hints ───────────────────────────────────────────
-with mid_col:
-    st.markdown(word_html(), unsafe_allow_html=True)
-    st.markdown("<br>", unsafe_allow_html=True)
+        if st.session_state.wrong_letters:
+            wl = "  ".join(l.upper() for l in st.session_state.wrong_letters)
+            st.markdown(f"<div style='background:#1a0508;border:1px solid #ff4757;border-radius:4px;padding:8px 12px;color:#ff4757;font-size:0.8rem;margin-top:8px;letter-spacing:0.15em;text-align:center'>✗  {wl}</div>", unsafe_allow_html=True)
 
-    # Keyboard
-    if not st.session_state.game_over:
-        alphabet = "abcdefghijklmnopqrstuvwxyz"
-        for row in [alphabet[:13], alphabet[13:]]:
-            cols = st.columns(len(row))
-            for i, letter in enumerate(row):
-                with cols[i]:
-                    disabled = letter in st.session_state.guessed
-                    if st.button(letter.upper(), key=f"k_{letter}", disabled=disabled):
-                        st.session_state.turn += 1
-                        st.session_state.guessed.add(letter)
-                        probs, possible, letter_counts, total = _run_bayes()
+        st.markdown(f"""<div style='background:#0f0f1a;border:1px solid #1e1e2e;border-radius:4px;padding:10px;margin-top:8px;text-align:center'>
+            <div style='font-size:0.58rem;letter-spacing:0.2em;color:#6b6b80;text-transform:uppercase'>Possible Words</div>
+            <div style='font-family:Bebas Neue,sans-serif;font-size:2.2rem;color:#47c8ff'>{st.session_state.possible_count}</div>
+        </div>""", unsafe_allow_html=True)
 
-                        if letter in st.session_state.word:
-                            count = st.session_state.word.count(letter)
-                            add_log(f"Guessed '{letter.upper()}' — CORRECT! Appears {count}x in word", "good")
-                            add_log(f"Bayesian update: P({letter.upper()}|evidence) was {probs.get(letter,0)*100:.1f}% → confirmed", "math")
-                        else:
-                            st.session_state.wrong.append(letter)
-                            add_log(f"Guessed '{letter.upper()}' — WRONG. Not in word.", "bad")
-                            add_log(f"Posterior updated: eliminated words containing '{letter.upper()}'", "math")
-
-                        add_log(f"Possible words remaining: {total} | Best next guess: {st.session_state.suggestion.upper() if st.session_state.suggestion else 'N/A'}", "info")
-                        check_game()
-                        st.rerun()
-
-    # Hints
-    st.markdown("<hr>", unsafe_allow_html=True)
-    st.markdown("<div style='font-size:0.65rem;letter-spacing:0.2em;color:#47c8ff;text-transform:uppercase'>🤖 AI Hints (Groq)</div>", unsafe_allow_html=True)
-
-    hint_count = st.session_state.hint_count
-    st.markdown("🔵" * hint_count + "⚪" * (3 - hint_count))
-
-    for h in st.session_state.hints:
-        st.markdown(f'<div class="hint-box">"{h}"</div>', unsafe_allow_html=True)
-
-    if not st.session_state.game_over and hint_count < 3:
-        if st.button(f"💡 Get AI Hint {hint_count+1}/3", key="hint_btn"):
-            with st.spinner("AI thinking..."):
-                hint = get_ai_hint(hint_count + 1)
-                st.session_state.hint_count += 1
-                st.session_state.hints.append(hint)
-                add_log(f"AI Hint {st.session_state.hint_count}/3 requested", "info")
-                add_log(f"Hint: \"{hint[:60]}...\"" if len(hint) > 60 else f"Hint: \"{hint}\"", "warn")
-                st.rerun()
-    elif hint_count >= 3:
-        st.markdown("<p style='color:#3a3a5a;font-size:0.75rem'>No hints remaining</p>", unsafe_allow_html=True)
-
-    # Game Over
-    if st.session_state.game_over:
-        st.markdown("<hr>", unsafe_allow_html=True)
-        if st.session_state.won:
-            st.markdown(f'<div class="win-box"><div class="result-text" style="color:#47ff8a">🎉 YOU WIN!</div><div style="color:#e8ff47;font-family:Bebas Neue,sans-serif;font-size:1.5rem;letter-spacing:0.2em">{st.session_state.word.upper()}</div></div>', unsafe_allow_html=True)
-        else:
-            st.markdown(f'<div class="lose-box"><div class="result-text" style="color:#ff4757">💀 GAME OVER</div><div style="color:#e8e8f0;font-family:Bebas Neue,sans-serif;font-size:1.2rem;letter-spacing:0.15em">WORD: {st.session_state.word.upper()}</div></div>', unsafe_allow_html=True)
-
-        if st.session_state.fun_fact:
-            st.markdown(f'<div class="fact-box">💡 {st.session_state.fun_fact}</div>', unsafe_allow_html=True)
-
-        if st.button("↺ Play Again", key="play_again"):
-            init_game()
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("↺ New Game", key="new_game"):
+            init_setup()
             st.rerun()
 
-# ── RIGHT: Bayesian Probabilities + Log ───────────────────────────────────────
-with right_col:
-    st.markdown("<div style='font-size:0.62rem;letter-spacing:0.2em;color:#c084fc;text-transform:uppercase;margin-bottom:6px'>∑ Bayesian Analysis — BAD402</div>", unsafe_allow_html=True)
+    with mid:
+        st.markdown(word_html(st.session_state.word_length, st.session_state.correct_positions), unsafe_allow_html=True)
 
-    # Formula
-    st.markdown("""<div style='background:#0f0f1a;border:1px solid #2a1a4a;border-radius:4px;padding:10px 12px;margin-bottom:8px;font-family:JetBrains Mono,monospace;font-size:0.68rem;color:#c084fc'>
-        P(L|E) ∝ P(E|L) × P(L)<br>
-        <span style='color:#6b6b80'>L = letter, E = revealed pattern</span><br>
-        <span style='color:#6b6b80'>Prior P(L) = English letter freq</span><br>
-        <span style='color:#6b6b80'>Likelihood P(E|L) = word corpus</span>
-    </div>""", unsafe_allow_html=True)
+        # AI guess display + response buttons
+        if st.session_state.current_guess and st.session_state.waiting_response:
+            letter = st.session_state.current_guess
+            prob = st.session_state.probs.get(letter, 0)
 
-    # Probability bars
-    st.markdown(prob_bars_html(st.session_state.bayes_probs), unsafe_allow_html=True)
+            st.markdown(f"""<div style='background:#0a1020;border:2px solid #47c8ff;border-radius:6px;padding:18px;text-align:center;margin:12px 0'>
+                <div style='font-size:0.6rem;letter-spacing:0.2em;color:#47c8ff;text-transform:uppercase'>🤖 AI Guesses</div>
+                <div style='font-family:Bebas Neue,sans-serif;font-size:5rem;color:#e8ff47;line-height:1'>{letter.upper()}</div>
+                <div style='font-size:0.72rem;color:#c084fc'>Bayesian Probability: <b>{prob*100:.1f}%</b></div>
+            </div>""", unsafe_allow_html=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("<div style='font-size:0.62rem;letter-spacing:0.2em;color:#47c8ff;text-transform:uppercase;margin-bottom:6px'>📋 Strategy Log</div>", unsafe_allow_html=True)
-    st.markdown(log_html(), unsafe_allow_html=True)
+            # AI reasoning
+            if st.session_state.ai_reasoning_text:
+                st.markdown(f'<div class="think-box"><div class="think-title">🧠 AI Reasoning</div><div class="think-text">{st.session_state.ai_reasoning_text}</div></div>', unsafe_allow_html=True)
+
+            st.markdown("**Is the letter present in your word?**")
+            col_yes, col_no = st.columns(2)
+            with col_yes:
+                if st.button(f"✅ YES — '{letter.upper()}' is in my word", key="yes_btn"):
+                    st.session_state._pending_yes = True
+                    st.rerun()
+            with col_no:
+                if st.button(f"❌ NO — '{letter.upper()}' is NOT in my word", key="no_btn"):
+                    process_response(False)
+                    st.rerun()
+
+            # Position selector (shown after YES)
+            if st.session_state.get("_pending_yes"):
+                length = st.session_state.word_length
+                st.markdown(f"**Select positions where '{letter.upper()}' appears (position 1 = first letter):**")
+
+                if "selected_positions" not in st.session_state:
+                    st.session_state.selected_positions = []
+
+                pos_cols = st.columns(min(length, 10))
+                for i in range(length):
+                    with pos_cols[i % min(length, 10)]:
+                        already = i in st.session_state.correct_positions
+                        sel = i in st.session_state.selected_positions
+                        label = f"[{i+1}]" if sel else f"{i+1}"
+                        if st.button(label, key=f"pos_{i}", disabled=already):
+                            if i in st.session_state.selected_positions:
+                                st.session_state.selected_positions.remove(i)
+                            else:
+                                st.session_state.selected_positions.append(i)
+                            st.rerun()
+
+                if st.session_state.selected_positions:
+                    sel_str = ", ".join(str(p+1) for p in sorted(st.session_state.selected_positions))
+                    st.markdown(f"<span class='badge badge-green'>Selected positions: {sel_str}</span>", unsafe_allow_html=True)
+                    if st.button("✅ Confirm Positions", key="confirm_pos"):
+                        positions = st.session_state.selected_positions[:]
+                        del st.session_state.selected_positions
+                        del st.session_state._pending_yes
+                        process_response(True, positions)
+                        st.rerun()
+
+        elif not st.session_state.waiting_response and not st.session_state.game_result:
+            st.markdown("<div style='text-align:center;padding:20px;color:#6b6b80'>⏳ AI is thinking...</div>", unsafe_allow_html=True)
+
+        # Guessed letters
+        if st.session_state.guessed_letters:
+            st.markdown("<hr>", unsafe_allow_html=True)
+            guessed_str = "  ".join(sorted(l.upper() for l in st.session_state.guessed_letters))
+            st.markdown(f"<div style='font-size:0.62rem;letter-spacing:0.15em;color:#6b6b80'>ALL GUESSES: {guessed_str}</div>", unsafe_allow_html=True)
+
+    with right:
+        st.markdown("<div style='font-size:0.62rem;letter-spacing:0.2em;color:#c084fc;text-transform:uppercase;margin-bottom:8px'>∑ Bayesian Analysis</div>", unsafe_allow_html=True)
+        st.markdown("""<div style='background:#0f0f1a;border:1px solid #2a1a4a;border-radius:4px;padding:10px 12px;margin-bottom:8px;font-family:JetBrains Mono,monospace;font-size:0.68rem;color:#c084fc;line-height:1.8'>
+            P(L|E) ∝ P(E|L) × P(L)<br>
+            <span style='color:#6b6b80'>Prior: letter frequency</span><br>
+            <span style='color:#6b6b80'>Likelihood: word corpus match</span>
+        </div>""", unsafe_allow_html=True)
+
+        st.markdown(prob_bars_html(st.session_state.probs), unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size:0.62rem;letter-spacing:0.2em;color:#47c8ff;text-transform:uppercase;margin-bottom:6px'>📋 Strategy Log</div>", unsafe_allow_html=True)
+        st.markdown(log_html(), unsafe_allow_html=True)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PHASE: RESULT
+# ══════════════════════════════════════════════════════════════════════════════
+elif st.session_state.phase == "result":
+    lc, rc = st.columns([1.5, 1])
+    with lc:
+        if st.session_state.game_result == "ai_win":
+            word = "".join(st.session_state.correct_positions.get(i,"?") for i in range(st.session_state.word_length))
+            st.markdown(f"""<div class='lose-box'>
+                <div class='result-big' style='color:#ff4757'>🤖 AI WINS!</div>
+                <div style='font-family:Bebas Neue,sans-serif;font-size:1.6rem;color:#e8ff47;letter-spacing:0.2em'>{word.upper()}</div>
+                <div style='font-size:0.8rem;color:#ff9f43;margin-top:8px'>{st.session_state.result_message}</div>
+            </div>""", unsafe_allow_html=True)
+        else:
+            st.markdown(f"""<div class='win-box'>
+                <div class='result-big' style='color:#47ff8a'>🎉 YOU WIN!</div>
+                <div style='font-size:0.8rem;color:#47ff8a;margin-top:8px'>AI failed to guess your word in {MAX_WRONG} tries!</div>
+                <div style='font-size:0.78rem;color:#6b6b80;margin-top:6px'>{st.session_state.result_message}</div>
+            </div>""", unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("🔄 Play Again", key="play_again"):
+                init_setup()
+                st.rerun()
+        with c2:
+            if st.button("📊 See Full Log", key="see_log"):
+                st.session_state.show_log = True
+
+    with rc:
+        st.markdown("<div style='font-size:0.62rem;letter-spacing:0.2em;color:#47c8ff;text-transform:uppercase;margin-bottom:6px'>📋 Strategy Log</div>", unsafe_allow_html=True)
+        st.markdown(log_html(), unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown(prob_bars_html(st.session_state.probs), unsafe_allow_html=True)
