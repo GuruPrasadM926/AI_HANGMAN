@@ -600,7 +600,8 @@ elif st.session_state.phase == "playing":
         st.markdown("<div class='gallows-wrap'>" + hangman_svg(len(st.session_state.wrong_letters)) + "</div>", unsafe_allow_html=True)
         wc = len(st.session_state.wrong_letters)
         col = "green" if wc < 2 else "yellow" if wc < 4 else "red"
-        st.markdown(f"<div style='text-align:center;margin:6px 0'><span style='background:#0f0f1a;border:1px solid;border-radius:2px;padding:3px 12px;font-size:0.62rem;letter-spacing:0.2em;border-color:{\"#47ff8a\" if col==\"green\" else \"#e8ff47\" if col==\"yellow\" else \"#ff4757\"};color:{\"#47ff8a\" if col==\"green\" else \"#e8ff47\" if col==\"yellow\" else \"#ff4757\"}'>WRONG: {wc}/{MAX_WRONG}</span></div>", unsafe_allow_html=True)
+       border_color = "#47ff8a" if col=="green" else "#e8ff47" if col=="yellow" else "#ff4757"
+        st.markdown(f"<div style='text-align:center;margin:6px 0'><span style='background:#0f0f1a;border:1px solid;border-radius:2px;padding:3px 12px;font-size:0.62rem;letter-spacing:0.2em;border-color:{border_color};color:{border_color}'>WRONG: {wc}/{MAX_WRONG}</span></div>", unsafe_allow_html=True)
 
         if st.session_state.wrong_letters:
             wl = "  ".join(l.upper() for l in st.session_state.wrong_letters)
