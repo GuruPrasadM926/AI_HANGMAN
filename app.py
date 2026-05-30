@@ -9,7 +9,7 @@ import streamlit as st
 import random, os
 from collections import defaultdict
 
-st.set_page_config(page_title="Hangman AI — BAD402", page_icon="🧠", layout="wide")
+st.set_page_config(page_title="Hangman AI ", page_icon="🧠", layout="wide")
 
 st.markdown("""
 <style>
@@ -39,7 +39,7 @@ hr { border:none; border-top:1px solid #1e1e2e !important; margin:10px 0 !import
 .prob-bar-bg { flex:1; background:#1a1a2e; border-radius:2px; height:10px; overflow:hidden; }
 .prob-bar { height:10px; border-radius:2px; transition:width .5s ease; }
 .prob-val { font-size:0.62rem; color:#6b6b80; width:42px; text-align:right; }
-.log-panel { background:#060610; border:1px solid #1e1e2e; border-radius:6px; padding:14px;
+.log-panel { background:#060610; border:1px solid #1e1e2e; border-radius:6px; pading:14px;
              font-family:'JetBrains Mono',monospace; font-size:0.7rem; max-height:380px; overflow-y:auto; }
 .log-entry { padding:4px 0; border-bottom:1px solid #0a0a15; line-height:1.5; }
 .log-time { color:#3a3a5a; margin-right:8px; }
@@ -318,7 +318,7 @@ def get_groq_client():
         return Groq(api_key=os.environ.get("GROQ_API_KEY",""))
 
 def ai_reasoning(letter, prob, possible_count, wrong_letters, pattern, category):
-    prompt = f"""You are an AI playing Hangman using Bayesian strategy (VTU BAD402 AI).
+    prompt = f"""You are an AI playing Hangman using Bayesian strategy.
 You chose letter '{letter.upper()}' with posterior probability {prob*100:.1f}%.
 - Category: {category}
 - Possible words remaining: {possible_count}
@@ -516,7 +516,7 @@ if "phase" not in st.session_state:
 # ══════════════════════════════════════════════════════════════════════════════
 c1,c2,c3,c4 = st.columns([2.5,1,1,1])
 with c1:
-    st.markdown("<div class='subtitle'>VTU BAD402 — Artificial Intelligence | Bayesian Strategy</div>", unsafe_allow_html=True)
+    st.markdown("<div class='subtitle'>Bayesian Strategy</div>", unsafe_allow_html=True)
     st.markdown("<h1>AI HANGMAN</h1>", unsafe_allow_html=True)
 with c2:
     st.markdown("<br>", unsafe_allow_html=True)
@@ -549,7 +549,7 @@ if st.session_state.phase == "setup":
         <span style='color:#c084fc'>Watch Bayesian probabilities update live! 📊</span>
         </p></div>""", unsafe_allow_html=True)
 
-        st.markdown("### 🎓 BAD402 Formula")
+        st.markdown("### 🎓Formula")
         st.markdown("""<div style='background:#0f0f1a;border:1px solid #2a1a4a;border-radius:4px;padding:14px;font-family:JetBrains Mono,monospace;font-size:0.72rem;color:#c084fc;line-height:2.0'>
             P(L | E) ∝ P(E | L) × P(L)<br>
             <span style='color:#6b6b80'>L = Letter &nbsp;|&nbsp; E = Pattern Evidence</span><br>
